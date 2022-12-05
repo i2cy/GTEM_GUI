@@ -8,7 +8,7 @@
 from ch347api import CH347HIDDev
 
 
-class FPGA(CH347HIDDev):
+class FPGA_SPI(CH347HIDDev):
 
     def __init__(self):
 
