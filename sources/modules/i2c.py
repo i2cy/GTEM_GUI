@@ -149,43 +149,80 @@ class FPGACtl:
         # 0-16
         self.chn_amp_rate_level = [0, 0, 0]
 
+    def __send_command(self):
+        """
+        private command update method
+        :return:
+        """
+        if self.fpga_is_open:
+            fpga_status = 0xa0
+        else:
+            fpga_status = 0x50
+
+        payload = [fpga_status | (self.chn_is_open[0] | self.chn_is_open[1] << 1 | self.chn_is_open[2] << 2),
+                   (self.sample_rate_level % 16 << 4) | (self.chn_amp_rate_level[0] % 16),
+                   (self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16)]
+
+        cmd = bytes(payload)
+        self.interface_fd = wpi.wiringPiI2CWrite(self.interface_fd, cmd)
+
     def start_FPGA(self):
         """
         start FPGA transmission
         :return:
         """
-        payload = [0xa0 | (self.chn_is_open[0] | self.chn_is_open[1] << 1 | self.chn_is_open[2] << 2),
-                   (self.sample_rate_level % 16 << 4) | (self.chn_amp_rate_level[0] % 16),
-                   (self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16)]
         self.fpga_is_open = True
 
-        cmd = bytes(payload)
-        self.interface_fd = wpi.wiringPiI2CWrite(self.interface_fd, cmd)
+        self.__send_command()
 
     def stop_FPGA(self):
         """
         stop FPGA transmission
         :return:
         """
-        payload = [0x50 | (self.chn_is_open[0] | self.chn_is_open[1] << 1 | self.chn_is_open[2] << 2),
-                   (self.sample_rate_level % 16 << 4) | (self.chn_amp_rate_level[0] % 16),
-                   (self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16)]
         self.fpga_is_open = False
 
-        cmd = bytes(payload)
-        self.interface_fd = wpi.wiringPiI2CWrite(self.interface_fd, cmd)
+        self.__send_command()
 
     def enable_channels(self, ch1: bool = True, ch2: bool = True, ch3: bool = True):
         """
-
-        :param ch1:
-        :param ch2:
-        :param ch3:
+        set each channel's status (True: start / False: stop)
+        :param ch1: bool
+        :param ch2: bool
+        :param ch3: bool
         :return:
         """
+        self.chn_is_open[0] = ch1
+        self.chn_is_open[1] = ch2
+        self.chn_is_open[2] = ch3
 
+        self.__send_command()
 
+    def set_sample_rate_level(self, sample_rate_level):
+        """
+        set sample rate level,
+        0--500  1--1k   2--2k   3--4k   4--8k   5--10k  6--20k  7--32k
+        8--40k  9--80k  A--25k  B--50k  C--100k D--200k E--400k F--800k
+        :param sample_rate_level: int
+        :return:
+        """
+        self.sample_rate_level = sample_rate_level
 
+        self.__send_command()
+
+    def set_amp_rate_of_channels(self, ch1_amp, ch2_amp, ch3_amp):
+        """
+        set the amplification rate of each channel, level from 0x00 to 0x0f
+        :param ch1_amp: int
+        :param ch2_amp: int
+        :param ch3_amp: int
+        :return:
+        """
+        self.chn_amp_rate_level[0] = ch1_amp
+        self.chn_amp_rate_level[1] = ch2_amp
+        self.chn_amp_rate_level[2] = ch3_amp
+
+        self.__send_command()
 
 
 if __name__ == '__main__':
