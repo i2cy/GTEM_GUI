@@ -19,7 +19,7 @@
       <paths name="pi@i2cy.tech:2205 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/tmp/pycharm_project_59" local="$PROJECT_DIR$" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
