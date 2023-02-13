@@ -4,3 +4,4 @@ pyqt5
 i2cylib
 ch347api
 matplotlib
+pyserial

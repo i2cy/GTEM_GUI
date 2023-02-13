@@ -241,7 +241,7 @@ if __name__ == '__main__':
     chip3.write_pins(0x03)
     chip4.write_pins(0x1234)
 
-    print("chip1 verification result: {}".format(chip1.read_output_pins() == 0x01))
-    print("chip2 verification result: {}".format(chip2.read_output_pins() == 0x02))
-    print("chip3 verification result: {}".format(chip3.read_output_pins() == 0x03))
-    print("chip4 verification result: {}".format(chip4.read_output_pins() == 0x1234))
+    print("chip1 TCA9554 for CH1 verification result: {}".format(chip1.read_output_pins() == 0x01))
+    print("chip2 TCA9554 for CH2 verification result: {}".format(chip2.read_output_pins() == 0x02))
+    print("chip3 TCA9554 for CH3 verification result: {}".format(chip3.read_output_pins() == 0x03))
+    print("chip4 TCA9539 verification result: {}".format(chip4.read_output_pins() == 0x1234))

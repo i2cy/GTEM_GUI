@@ -7,7 +7,7 @@
 
 import time
 import numpy as np
-from multiprocessing import Array, Process, Queue, Value
+from multiprocessing import Array, Process, Queue, Value, Pool
 import ctypes
 
 

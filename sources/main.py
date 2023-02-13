@@ -20,6 +20,7 @@ from PyQt5.QtCore import Qt, QTimer
 from mainWindow import Ui_MainWindow
 from modules.data import PlotBuf
 from modules.gtem import Gtem24File, Gtem24
+from modules.graphic import init_graph
 from i2cylib.utils import DirTree
 
 REAL_TIME_PLOT_XRANGES = (-5, 0)
@@ -83,283 +84,128 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         pg.setConfigOption('foreground', 'w')
 
         # sec field graph init
-        self.sfPlotWeight_all = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_all.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_all.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_all.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_all.plotItem.showAxes("top")
-        self.sfPlotWeight_all.plotItem.showAxes("right")
-        self.sfPlotWeight_all.plotItem.setLogMode(x=True, y=True)
-        self.sfPlotWeight_all.plotItem.addLegend()
-        self.sfPlotWeight_all.setMouseEnabled(False, False)
-        self.sfPlotWeight_all.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_all.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_allGraph.addWidget(self.sfPlotWeight_all)
-        self.setLayout(self.gridLayout_allGraph)
+        self.sfPlotWeight_all = init_graph(self, self.gridLayout_allGraph,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=SEC_FILED_XRANGE,
+                                           yrange=SEC_FILED_YRANGE,
+                                           disable_mouse=True,
+                                           enable_legend=True,
+                                           log_mode=True)
 
-        self.sfPlotWeight_ch1 = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_ch1.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_ch1.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_ch1.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_ch1.plotItem.showAxes("top")
-        self.sfPlotWeight_ch1.plotItem.showAxes("right")
-        self.sfPlotWeight_ch1.plotItem.setLogMode(x=True, y=True)
-        # self.sfPlotWeight_ch1.plotItem.addLegend()
-        # self.sfPlotWeight_ch1.setMouseEnabled(False, False)
-        self.sfPlotWeight_ch1.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_ch1.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_ch1Graph.addWidget(self.sfPlotWeight_ch1)
-        self.setLayout(self.gridLayout_ch1Graph)
+        self.sfPlotWeight_ch1 = init_graph(self, self.gridLayout_ch1Graph,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=SEC_FILED_XRANGE,
+                                           yrange=SEC_FILED_YRANGE,
+                                           disable_mouse=True,
+                                           enable_legend=True,
+                                           log_mode=True)
 
-        self.sfPlotWeight_ch2 = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_ch2.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_ch2.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_ch2.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_ch2.plotItem.showAxes("top")
-        self.sfPlotWeight_ch2.plotItem.showAxes("right")
-        self.sfPlotWeight_ch2.plotItem.setLogMode(x=True, y=True)
-        # self.sfPlotWeight_ch2.plotItem.addLegend()
-        self.sfPlotWeight_ch2.setMouseEnabled(False, False)
-        self.sfPlotWeight_ch2.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_ch2.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_ch2Graph.addWidget(self.sfPlotWeight_ch2)
-        self.setLayout(self.gridLayout_ch2Graph)
+        self.sfPlotWeight_ch2 = init_graph(self, self.gridLayout_ch2Graph,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=SEC_FILED_XRANGE,
+                                           yrange=SEC_FILED_YRANGE,
+                                           disable_mouse=True,
+                                           enable_legend=True,
+                                           log_mode=True)
 
-        self.sfPlotWeight_ch3 = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_ch3.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_ch3.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_ch3.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_ch3.plotItem.showAxes("top")
-        self.sfPlotWeight_ch3.plotItem.showAxes("right")
-        self.sfPlotWeight_ch3.plotItem.setLogMode(x=True, y=True)
-        # self.sfPlotWeight_ch3.plotItem.addLegend()
-        self.sfPlotWeight_ch3.setMouseEnabled(False, False)
-        self.sfPlotWeight_ch3.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_ch3.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_ch3Graph.addWidget(self.sfPlotWeight_ch3)
-        self.setLayout(self.gridLayout_ch3Graph)
+        self.sfPlotWeight_ch3 = init_graph(self, self.gridLayout_ch3Graph,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=SEC_FILED_XRANGE,
+                                           yrange=SEC_FILED_YRANGE,
+                                           disable_mouse=True,
+                                           enable_legend=True,
+                                           log_mode=True)
 
         # history sec field graph
-        self.sfPlotWeight_all_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_all_hist.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_all_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_all_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_all_hist.plotItem.showAxes("top")
-        self.sfPlotWeight_all_hist.plotItem.showAxes("right")
-        self.sfPlotWeight_all_hist.plotItem.setLogMode(x=True, y=True)
-        self.sfPlotWeight_all_hist.plotItem.addLegend()
-        self.sfPlotWeight_all_hist.setMouseEnabled(False, False)
-        self.sfPlotWeight_all_hist.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_all_hist.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_allGraph_hist.addWidget(self.sfPlotWeight_all_hist)
-        self.setLayout(self.gridLayout_allGraph_hist)
+        self.sfPlotWeight_all_hist = init_graph(self, self.gridLayout_allGraph_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=SEC_FILED_XRANGE,
+                                                yrange=SEC_FILED_YRANGE,
+                                                disable_mouse=True,
+                                                enable_legend=True,
+                                                log_mode=True)
 
-        self.sfPlotWeight_ch1_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_ch1_hist.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_ch1_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_ch1_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_ch1_hist.plotItem.showAxes("top")
-        self.sfPlotWeight_ch1_hist.plotItem.showAxes("right")
-        self.sfPlotWeight_ch1_hist.plotItem.setLogMode(x=True, y=True)
-        # self.sfPlotWeight_ch1.plotItem.addLegend()
-        # self.sfPlotWeight_ch1.setMouseEnabled(False, False)
-        self.sfPlotWeight_ch1_hist.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_ch1_hist.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_ch1Graph_hist.addWidget(self.sfPlotWeight_ch1_hist)
-        self.setLayout(self.gridLayout_ch1Graph_hist)
+        self.sfPlotWeight_ch1_hist = init_graph(self, self.gridLayout_allGraph_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=SEC_FILED_XRANGE,
+                                                yrange=SEC_FILED_YRANGE,
+                                                disable_mouse=True,
+                                                enable_legend=True,
+                                                log_mode=True)
 
-        self.sfPlotWeight_ch2_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_ch2_hist.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_ch2_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_ch2_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_ch2_hist.plotItem.showAxes("top")
-        self.sfPlotWeight_ch2_hist.plotItem.showAxes("right")
-        self.sfPlotWeight_ch2_hist.plotItem.setLogMode(x=True, y=True)
-        # self.sfPlotWeight_ch2.plotItem.addLegend()
-        self.sfPlotWeight_ch2_hist.setMouseEnabled(False, False)
-        self.sfPlotWeight_ch2_hist.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_ch2_hist.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_ch2Graph_hist.addWidget(self.sfPlotWeight_ch2_hist)
-        self.setLayout(self.gridLayout_ch2Graph_hist)
+        self.sfPlotWeight_ch2_hist = init_graph(self, self.gridLayout_ch2Graph_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=SEC_FILED_XRANGE,
+                                                yrange=SEC_FILED_YRANGE,
+                                                disable_mouse=True,
+                                                enable_legend=True,
+                                                log_mode=True)
 
-        self.sfPlotWeight_ch3_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.sfPlotWeight_ch3_hist.setSizePolicy(sizePolicy)
-        self.sfPlotWeight_ch3_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.sfPlotWeight_ch3_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.sfPlotWeight_ch3_hist.plotItem.showAxes("top")
-        self.sfPlotWeight_ch3_hist.plotItem.showAxes("right")
-        self.sfPlotWeight_ch3_hist.plotItem.setLogMode(x=True, y=True)
-        # self.sfPlotWeight_ch3.plotItem.addLegend()
-        self.sfPlotWeight_ch3_hist.setMouseEnabled(False, False)
-        self.sfPlotWeight_ch3_hist.setXRange(*SEC_FILED_XRANGE)
-        self.sfPlotWeight_ch3_hist.setYRange(*SEC_FILED_YRANGE)
-        self.gridLayout_ch3Graph_hist.addWidget(self.sfPlotWeight_ch3_hist)
-        self.setLayout(self.gridLayout_ch3Graph_hist)
+        self.sfPlotWeight_ch3_hist = init_graph(self, self.gridLayout_ch3Graph_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=SEC_FILED_XRANGE,
+                                                yrange=SEC_FILED_YRANGE,
+                                                disable_mouse=True,
+                                                enable_legend=True,
+                                                log_mode=True)
 
         # real time graph init
-        self.rtPlotWeight_all = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_all.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_all.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_all.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_all.plotItem.showAxes("top")
-        self.rtPlotWeight_all.plotItem.showAxes("right")
-        self.rtPlotWeight_all.plotItem.addLegend()
-        # self.rtPlotWeight_all.setMouseEnabled(False, False)
-        self.rtPlotWeight_all.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_all.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_allRealTime.addWidget(self.rtPlotWeight_all)
-        self.setLayout(self.gridLayout_allRealTime)
+        self.rtPlotWeight_all = init_graph(self, self.gridLayout_allRealTime,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=REAL_TIME_PLOT_XRANGES,
+                                           yrange=REAL_TIME_PLOT_YRANGES,
+                                           disable_mouse=False,
+                                           enable_legend=True)
 
-        self.rtPlotWeight_ch1 = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_ch1.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_ch1.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_ch1.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_ch1.plotItem.showAxes("top")
-        self.rtPlotWeight_ch1.plotItem.showAxes("right")
-        # self.rtPlotWeight_ch1.setMouseEnabled(False, False)
-        self.rtPlotWeight_ch1.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_ch1.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_ch1RealTime.addWidget(self.rtPlotWeight_ch1)
-        self.setLayout(self.gridLayout_ch1RealTime)
+        self.rtPlotWeight_ch1 = init_graph(self, self.gridLayout_ch1RealTime,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=REAL_TIME_PLOT_XRANGES,
+                                           yrange=REAL_TIME_PLOT_YRANGES,
+                                           disable_mouse=False,
+                                           enable_legend=True)
 
-        self.rtPlotWeight_ch2 = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_ch2.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_ch2.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_ch2.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_ch2.plotItem.showAxes("top")
-        self.rtPlotWeight_ch2.plotItem.showAxes("right")
-        # self.rtPlotWeight_ch2.setMouseEnabled(False, False)
-        self.rtPlotWeight_ch2.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_ch2.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_ch2RealTime.addWidget(self.rtPlotWeight_ch2)
-        self.setLayout(self.gridLayout_ch2RealTime)
+        self.rtPlotWeight_ch2 = init_graph(self, self.gridLayout_ch2RealTime,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=REAL_TIME_PLOT_XRANGES,
+                                           yrange=REAL_TIME_PLOT_YRANGES,
+                                           disable_mouse=False,
+                                           enable_legend=True)
 
-        self.rtPlotWeight_ch3 = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_ch3.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_ch3.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_ch3.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_ch3.plotItem.showAxes("top")
-        self.rtPlotWeight_ch3.plotItem.showAxes("right")
-        # self.rtPlotWeight_ch3.setMouseEnabled(False, False)
-        self.rtPlotWeight_ch3.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_ch3.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_ch3RealTime.addWidget(self.rtPlotWeight_ch3)
-        self.setLayout(self.gridLayout_ch3RealTime)
+        self.rtPlotWeight_ch3 = init_graph(self, self.gridLayout_ch3RealTime,
+                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xrange=REAL_TIME_PLOT_XRANGES,
+                                           yrange=REAL_TIME_PLOT_YRANGES,
+                                           disable_mouse=False,
+                                           enable_legend=True)
 
         # history real time graph
+        self.rtPlotWeight_all_hist = init_graph(self, self.gridLayout_allRealTime_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=REAL_TIME_PLOT_XRANGES,
+                                                yrange=REAL_TIME_PLOT_YRANGES,
+                                                disable_mouse=False,
+                                                enable_legend=True)
 
-        self.rtPlotWeight_all_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_all_hist.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_all_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_all_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_all_hist.plotItem.showAxes("top")
-        self.rtPlotWeight_all_hist.plotItem.showAxes("right")
-        self.rtPlotWeight_all_hist.plotItem.addLegend()
-        # self.rtPlotWeight_all_hist.setMouseEnabled(False, False)
-        self.rtPlotWeight_all_hist.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_all_hist.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_allRealTime_hist.addWidget(self.rtPlotWeight_all_hist)
-        self.setLayout(self.gridLayout_allRealTime_hist)
+        self.rtPlotWeight_ch1_hist = init_graph(self, self.gridLayout_ch1RealTime_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=REAL_TIME_PLOT_XRANGES,
+                                                yrange=REAL_TIME_PLOT_YRANGES,
+                                                disable_mouse=False,
+                                                enable_legend=True)
 
-        self.rtPlotWeight_ch1_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_ch1_hist.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_ch1_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_ch1_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_ch1_hist.plotItem.showAxes("top")
-        self.rtPlotWeight_ch1_hist.plotItem.showAxes("right")
-        # self.rtPlotWeight_ch1.setMouseEnabled(False, False)
-        self.rtPlotWeight_ch1_hist.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_ch1_hist.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_ch1RealTime_hist.addWidget(self.rtPlotWeight_ch1_hist)
-        self.setLayout(self.gridLayout_ch1RealTime_hist)
+        self.rtPlotWeight_ch2_hist = init_graph(self, self.gridLayout_ch2RealTime_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=REAL_TIME_PLOT_XRANGES,
+                                                yrange=REAL_TIME_PLOT_YRANGES,
+                                                disable_mouse=False,
+                                                enable_legend=True)
 
-        self.rtPlotWeight_ch2_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_ch2_hist.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_ch2_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_ch2_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_ch2_hist.plotItem.showAxes("top")
-        self.rtPlotWeight_ch2_hist.plotItem.showAxes("right")
-        # self.rtPlotWeight_ch2.setMouseEnabled(False, False)
-        self.rtPlotWeight_ch2_hist.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_ch2_hist.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_ch2RealTime_hist.addWidget(self.rtPlotWeight_ch2_hist)
-        self.setLayout(self.gridLayout_ch2RealTime_hist)
-
-        self.rtPlotWeight_ch3_hist = pg.PlotWidget()
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.rtPlotWeight_ch3_hist.setSizePolicy(sizePolicy)
-        self.rtPlotWeight_ch3_hist.plotItem.setLabels(bottom=REAL_TIME_PLOT_XTITLE)
-        self.rtPlotWeight_ch3_hist.plotItem.showGrid(x=True, y=True, alpha=0.5)
-        self.rtPlotWeight_ch3_hist.plotItem.showAxes("top")
-        self.rtPlotWeight_ch3_hist.plotItem.showAxes("right")
-        # self.rtPlotWeight_ch3.setMouseEnabled(False, False)
-        self.rtPlotWeight_ch3_hist.setXRange(*REAL_TIME_PLOT_XRANGES)
-        self.rtPlotWeight_ch3_hist.setYRange(*REAL_TIME_PLOT_YRANGES)
-        self.gridLayout_ch3RealTime_hist.addWidget(self.rtPlotWeight_ch3_hist)
-        self.setLayout(self.gridLayout_ch3RealTime_hist)
+        self.rtPlotWeight_ch3_hist = init_graph(self, self.gridLayout_ch3RealTime_hist,
+                                                xtitle=REAL_TIME_PLOT_XTITLE,
+                                                xrange=REAL_TIME_PLOT_XRANGES,
+                                                yrange=REAL_TIME_PLOT_YRANGES,
+                                                disable_mouse=False,
+                                                enable_legend=True)
 
         # channel data buffer (max size 2000)
         self.buf_realTime_ch1 = PlotBuf()
@@ -690,7 +536,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             x_range = current_plot.getViewBox().viewRange()
             y_range = x_range[1]
             x_range = x_range[0]
-            x_range = [x_range[0] + dt, x_range[1] + dt]
+            x_start = (x_range[0] + dt) * max_view_range // max_view_range
+            x_range = [x_start, x_start + max_view_range]
 
             current_data.setData(*data)
         else:

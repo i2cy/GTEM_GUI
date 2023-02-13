@@ -19,6 +19,10 @@ class GPS:
     def read_raw(self):
         return self.__clt.readline().decode()
 
+
+    def _receiver(self):
+        pass
+
     def close(self):
         self.__clt.close()
 

@@ -1,0 +1,8 @@
+<RCC>
+  <qresource prefix="Menu">
+    <file>assets/wifi.svg</file>
+    <file>assets/查看历史文件.svg</file>
+    <file>assets/飞行.svg</file>
+    <file>assets/准备GTEM采集.svg</file>
+  </qresource>
+</RCC>

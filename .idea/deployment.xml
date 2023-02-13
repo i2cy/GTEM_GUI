@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="GTEM on RK3399" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
+      <paths name="CodyBot on I2APP">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="GTEM on RK3399">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/pi/GTEM_CDUT" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="icy@i2cy.tech:22 password">
         <serverdata>
           <mappings>
@@ -9,14 +23,7 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="icy@i2cy.tech:2203 password">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="pi@i2cy.tech:2205 password">
+      <paths name="icy@i2cy.tech:22 password (1)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
