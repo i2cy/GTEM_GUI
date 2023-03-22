@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="GTEM on RK3399" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
+      <paths name="AliOS">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="CodyBot on I2APP">
         <serverdata>
           <mappings>
@@ -12,21 +19,21 @@
       <paths name="GTEM on RK3399">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/pi/GTEM_CDUT" local="$PROJECT_DIR$" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="icy@i2cy.tech:22 password">
+      <paths name="orangepi@i2cy.tech:2207 password">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="icy@i2cy.tech:22 password (1)">
+      <paths name="pi@RK3399 local">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/pi/GTEM" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

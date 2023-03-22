@@ -5,3 +5,4 @@ i2cylib
 ch347api
 matplotlib
 pyserial
+spidev

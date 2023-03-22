@@ -17,27 +17,18 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, \
     QSizePolicy, QListWidgetItem, QMessageBox
 from PyQt5.QtGui import QIcon, QImage, QPixmap, QKeyEvent, QMouseEvent, QPainterPath
 from PyQt5.QtCore import Qt, QTimer
+from i2cylib.utils import DirTree
+
 from mainWindow import Ui_MainWindow
 from modules.data import PlotBuf
 from modules.gtem import Gtem24File, Gtem24
 from modules.graphic import init_graph
-from i2cylib.utils import DirTree
+from modules.globals import REAL_TIME_PLOT_XRANGES, REAL_TIME_PLOT_YRANGES
+from modules.globals import REAL_TIME_PLOT_XTITLE, REAL_TIME_MAX_VIEW_TIME
+from modules.globals import MAX_BUFFER_TIME, REAL_TIME_LINE_COLOR, REAL_TIME_ALL_COLORS
+from modules.globals import REAL_TIME_LINE_WIDTH, SEC_FILED_YRANGE, SEC_FILED_XRANGE
+from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread
 
-REAL_TIME_PLOT_XRANGES = (-5, 0)
-REAL_TIME_PLOT_YRANGES = (-1.2 * 10 ** 7, 1.2 * 10 ** 7)
-REAL_TIME_PLOT_XTITLE = "time(s)"
-REAL_TIME_MAX_VIEW_TIME = 0.2
-
-MAX_BUFFER_TIME = 60
-
-REAL_TIME_LINE_COLOR = (255, 168, 56)
-REAL_TIME_ALL_COLORS = ((255, 168, 56),
-                        (18, 145, 255),
-                        (60, 255, 20))
-REAL_TIME_LINE_WIDTH = 1.7
-
-SEC_FILED_XRANGE = (-1.4, 1)
-SEC_FILED_YRANGE = (0, 7)
 
 
 class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
@@ -154,28 +145,28 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                                            xtitle=REAL_TIME_PLOT_XTITLE,
                                            xrange=REAL_TIME_PLOT_XRANGES,
                                            yrange=REAL_TIME_PLOT_YRANGES,
-                                           disable_mouse=False,
+                                           disable_mouse=True,
                                            enable_legend=True)
 
         self.rtPlotWeight_ch1 = init_graph(self, self.gridLayout_ch1RealTime,
                                            xtitle=REAL_TIME_PLOT_XTITLE,
                                            xrange=REAL_TIME_PLOT_XRANGES,
                                            yrange=REAL_TIME_PLOT_YRANGES,
-                                           disable_mouse=False,
+                                           disable_mouse=True,
                                            enable_legend=True)
 
         self.rtPlotWeight_ch2 = init_graph(self, self.gridLayout_ch2RealTime,
                                            xtitle=REAL_TIME_PLOT_XTITLE,
                                            xrange=REAL_TIME_PLOT_XRANGES,
                                            yrange=REAL_TIME_PLOT_YRANGES,
-                                           disable_mouse=False,
+                                           disable_mouse=True,
                                            enable_legend=True)
 
         self.rtPlotWeight_ch3 = init_graph(self, self.gridLayout_ch3RealTime,
                                            xtitle=REAL_TIME_PLOT_XTITLE,
                                            xrange=REAL_TIME_PLOT_XRANGES,
                                            yrange=REAL_TIME_PLOT_YRANGES,
-                                           disable_mouse=False,
+                                           disable_mouse=True,
                                            enable_legend=True)
 
         # history real time graph
@@ -351,7 +342,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.sfPlot_all_ch1 = self.sfPlotWeight_all.plot(*data,
                                                          name="CH1",
                                                          pen=pg.mkPen(
-                                                             color=REAL_TIME_LINE_COLOR,
+                                                             color=REAL_TIME_ALL_COLORS[0],
                                                              width=REAL_TIME_LINE_WIDTH
                                                          ))
 
@@ -364,7 +355,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.sfPlot_all_ch2 = self.sfPlotWeight_all.plot(*data,
                                                          name="CH2",
                                                          pen=pg.mkPen(
-                                                             color=REAL_TIME_LINE_COLOR,
+                                                             color=REAL_TIME_ALL_COLORS[1],
                                                              width=REAL_TIME_LINE_WIDTH
                                                          ))
 
@@ -377,9 +368,13 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.sfPlot_all_ch3 = self.sfPlotWeight_all.plot(*data,
                                                          name="CH3",
                                                          pen=pg.mkPen(
-                                                             color=REAL_TIME_LINE_COLOR,
+                                                             color=REAL_TIME_ALL_COLORS[2],
                                                              width=REAL_TIME_LINE_WIDTH
                                                          ))
+
+
+        self.real_time_graph_updater = MainGraphUpdaterThread(self)
+        self.sec_time_graph_updater = SecGraphUpdaterThread(self)
 
         self.rtGraph_Ticker = QTimer()
         self.rtGraph_Ticker.timeout.connect(self.doUpdateRealTimeGraph)
@@ -437,7 +432,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
     def actionStartRecording(self):
         self.doResetRealTimeGraph()
-        self.rtGraph_Ticker.start(100)
+        self.rtGraph_Ticker.start(500)
         self.sfGraph_Ticker.start(1000)
         self.toolButton_startRecording.setText("正在采集")
         self.label_titleFilenameHeader.setVisible(True)
@@ -504,104 +499,112 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtPlotWeight_ch3.setRange(xRange=REAL_TIME_PLOT_XRANGES, padding=0)
 
     def doUpdateRealTimeGraph(self):
-        if self.stackedWidget_topBar.currentIndex() != 0:
+        if self.stackedWidget_topBar.currentIndex() != 0 or self.real_time_graph_updater.isRunning():
             return
 
-        sample_rate = int(self.comboBox_sampleRate.currentText())
-        emit_rate = int(self.comboBox_radiateFreq.currentText())
-        tab_index = self.tabWidget_channelGraph.currentIndex()
-        current_buf = None
-        current_data = None
+        if self.real_time_graph_updater.isFinished():
+            self.real_time_graph_updater.update_graph()
 
-        if tab_index == 1:
-            current_buf = self.buf_realTime_ch1
-            current_plot = self.rtPlotWeight_ch1
-            current_data = self.rtPlot_ch1
-        elif tab_index == 2:
-            current_buf = self.buf_realTime_ch2
-            current_plot = self.rtPlotWeight_ch2
-            current_data = self.rtPlot_ch2
-        elif tab_index == 3:
-            current_buf = self.buf_realTime_ch3
-            current_plot = self.rtPlotWeight_ch3
-            current_data = self.rtPlot_ch3
-        else:
-            current_plot = self.rtPlotWeight_all
+        self.real_time_graph_updater.start()
+        # sample_rate = int(self.comboBox_sampleRate.currentText())
+        # emit_rate = int(self.comboBox_radiateFreq.currentText())
+        # tab_index = self.tabWidget_channelGraph.currentIndex()
+        # current_buf = None
+        # current_data = None
+        #
+        # if tab_index == 1:
+        #     current_buf = self.buf_realTime_ch1
+        #     current_plot = self.rtPlotWeight_ch1
+        #     current_data = self.rtPlot_ch1
+        # elif tab_index == 2:
+        #     current_buf = self.buf_realTime_ch2
+        #     current_plot = self.rtPlotWeight_ch2
+        #     current_data = self.rtPlot_ch2
+        # elif tab_index == 3:
+        #     current_buf = self.buf_realTime_ch3
+        #     current_plot = self.rtPlotWeight_ch3
+        #     current_data = self.rtPlot_ch3
+        # else:
+        #     current_plot = self.rtPlotWeight_all
+        #
+        # max_view_range = 4 / emit_rate
+        # view_range = int(max_view_range * sample_rate)
+        #
+        # if tab_index:
+        #     dt, data = current_buf.getBuf(view_range)
+        #     x_range = current_plot.getViewBox().viewRange()
+        #     y_range = x_range[1]
+        #     x_range = x_range[0]
+        #     x_start = (x_range[0] + dt) * max_view_range // max_view_range
+        #     x_range = [x_start, x_start + max_view_range]
+        #
+        #     current_data.setData(*data)
+        # else:
+        #     dt, data = self.buf_realTime_ch1.getBuf(view_range)
+        #     x_range = current_plot.getViewBox().viewRange()
+        #     y_range = x_range[1]
+        #     x_range = x_range[0]
+        #     x_range = [x_range[0] + dt, x_range[1] + dt]
+        #     self.rtPlot_allch1.setData(*data)
+        #     dt, data = self.buf_realTime_ch2.getBuf(view_range)
+        #     self.rtPlot_allch2.setData(*data)
+        #     dt, data = self.buf_realTime_ch3.getBuf(view_range)
+        #     self.rtPlot_allch3.setData(*data)
+        #
+        # xmin = data[0][0]
+        #
+        # self.rtPlotWeight_all.setLimits(xMin=xmin, xMax=data[0][-1])
+        # self.rtPlotWeight_all.setRange(xRange=x_range, yRange=y_range, padding=0)
+        # self.rtPlotWeight_ch1.setLimits(xMin=xmin, xMax=data[0][-1])
+        # self.rtPlotWeight_ch1.setRange(xRange=x_range, yRange=y_range, padding=0)
+        # self.rtPlotWeight_ch2.setLimits(xMin=xmin, xMax=data[0][-1])
+        # self.rtPlotWeight_ch2.setRange(xRange=x_range, yRange=y_range, padding=0)
+        # self.rtPlotWeight_ch3.setLimits(xMin=xmin, xMax=data[0][-1])
+        # self.rtPlotWeight_ch3.setRange(xRange=x_range, yRange=y_range, padding=0)
 
-        max_view_range = 4 / emit_rate
-        view_range = int(max_view_range * sample_rate)
-
-        if tab_index:
-            dt, data = current_buf.getBuf(view_range)
-            x_range = current_plot.getViewBox().viewRange()
-            y_range = x_range[1]
-            x_range = x_range[0]
-            x_start = (x_range[0] + dt) * max_view_range // max_view_range
-            x_range = [x_start, x_start + max_view_range]
-
-            current_data.setData(*data)
-        else:
-            dt, data = self.buf_realTime_ch1.getBuf(view_range)
-            x_range = current_plot.getViewBox().viewRange()
-            y_range = x_range[1]
-            x_range = x_range[0]
-            x_range = [x_range[0] + dt, x_range[1] + dt]
-            self.rtPlot_allch1.setData(*data)
-            dt, data = self.buf_realTime_ch2.getBuf(view_range)
-            self.rtPlot_allch2.setData(*data)
-            dt, data = self.buf_realTime_ch3.getBuf(view_range)
-            self.rtPlot_allch3.setData(*data)
-
-        xmin = data[0][0]
-
-        self.rtPlotWeight_all.setLimits(xMin=xmin, xMax=data[0][-1])
-        self.rtPlotWeight_all.setRange(xRange=x_range, yRange=y_range, padding=0)
-        self.rtPlotWeight_ch1.setLimits(xMin=xmin, xMax=data[0][-1])
-        self.rtPlotWeight_ch1.setRange(xRange=x_range, yRange=y_range, padding=0)
-        self.rtPlotWeight_ch2.setLimits(xMin=xmin, xMax=data[0][-1])
-        self.rtPlotWeight_ch2.setRange(xRange=x_range, yRange=y_range, padding=0)
-        self.rtPlotWeight_ch3.setLimits(xMin=xmin, xMax=data[0][-1])
-        self.rtPlotWeight_ch3.setRange(xRange=x_range, yRange=y_range, padding=0)
 
     def doUpdateSecFieldGraph(self):
-        if self.stackedWidget_topBar.currentIndex() != 1:
+        if self.stackedWidget_topBar.currentIndex() != 1 or self.sec_time_graph_updater.isRunning():
             return
 
-        add_time = int(self.comboBox_secFieldStackingTime.currentText())
-        sample_rate = int(self.comboBox_sampleRate.currentText())
-        emit_rate = int(self.comboBox_radiateFreq.currentText())
-        tab_index = self.tabWidget_channelGraph.currentIndex()
-        current_buf = None
-        current_data = None
-
-        if tab_index == 1:
-            current_buf = self.buf_realTime_ch1
-            current_data = self.sfPlot_ch1
-            data = current_buf.getBuf(sample_rate * add_time)
-            x, sig = Gtem24(sample_rate=sample_rate,
-                            emit_freq=emit_rate,
-                            data=data[1][1]).gateTraceSecFieldExtract(add_time)
-            current_data.setData(x, sig)
-
-        elif tab_index == 2:
-            current_buf = self.buf_realTime_ch2
-            current_data = self.sfPlot_ch2
-            data = current_buf.getBuf(sample_rate * add_time)
-            x, sig = Gtem24(sample_rate=sample_rate,
-                            emit_freq=emit_rate,
-                            data=data[1][1]).gateTraceSecFieldExtract(add_time)
-            current_data.setData(x, sig)
-        elif tab_index == 3:
-            current_buf = self.buf_realTime_ch3
-            current_data = self.sfPlot_ch3
-            data = current_buf.getBuf(sample_rate * add_time)
-            x, sig = Gtem24(sample_rate=sample_rate,
-                            emit_freq=emit_rate,
-                            data=data[1][1]).gateTraceSecFieldExtract(add_time)
-            current_data.setData(x, sig)
-        else:
-            current_plot = self.rtPlotWeight_all
-            current_data = self.rtPlot_ch1
+        if self.sec_time_graph_updater.isFinished():
+            self.sec_time_graph_updater.update_graph()
+        self.sec_time_graph_updater.start()
+        # add_time = int(self.comboBox_secFieldStackingTime.currentText())
+        # sample_rate = int(self.comboBox_sampleRate.currentText())
+        # emit_rate = int(self.comboBox_radiateFreq.currentText())
+        # tab_index = self.tabWidget_channelGraph.currentIndex()
+        # current_buf = None
+        # current_data = None
+        #
+        # if tab_index == 1:
+        #     current_buf = self.buf_realTime_ch1
+        #     current_data = self.sfPlot_ch1
+        #     data = current_buf.getBuf(sample_rate * add_time)
+        #     x, sig = Gtem24(sample_rate=sample_rate,
+        #                     emit_freq=emit_rate,
+        #                     data=data[1][1]).gateTraceSecFieldExtract(add_time)
+        #     current_data.setData(x, sig)
+        #
+        # elif tab_index == 2:
+        #     current_buf = self.buf_realTime_ch2
+        #     current_data = self.sfPlot_ch2
+        #     data = current_buf.getBuf(sample_rate * add_time)
+        #     x, sig = Gtem24(sample_rate=sample_rate,
+        #                     emit_freq=emit_rate,
+        #                     data=data[1][1]).gateTraceSecFieldExtract(add_time)
+        #     current_data.setData(x, sig)
+        # elif tab_index == 3:
+        #     current_buf = self.buf_realTime_ch3
+        #     current_data = self.sfPlot_ch3
+        #     data = current_buf.getBuf(sample_rate * add_time)
+        #     x, sig = Gtem24(sample_rate=sample_rate,
+        #                     emit_freq=emit_rate,
+        #                     data=data[1][1]).gateTraceSecFieldExtract(add_time)
+        #     current_data.setData(x, sig)
+        # else:
+        #     current_plot = self.rtPlotWeight_all
+        #     current_data = self.rtPlot_ch1
 
 
 if __name__ == '__main__':

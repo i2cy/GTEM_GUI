@@ -56,81 +56,8 @@ class FPGA_SPI(CH347HIDDev):
     def __thread_receiver(self):
         pass
 
-
 if __name__ == '__main__':
-    import random
-    from hashlib import sha256
+    import wiringpi as wpi
 
-    test_data_per_frame = 1000
+    wpi.wiringPiSPISetup(0, 500000)
 
-    test_data = __test_unit_generate_frame(test_data_per_frame)
-    t0 = time.time()
-    test_decoded = __decode_frame(test_data, num_data_per_frame=test_data_per_frame, algorithm_num=0)
-    ts = time.time() - t0
-    print("algor 0 time spent: {:.4f} ms".format(ts * 1000))
-    print("decoded: ")
-    for i in range(3):
-        print("  ", test_decoded[i])
-
-    t0 = time.time()
-    test_decoded = __decode_frame(test_data, num_data_per_frame=test_data_per_frame, algorithm_num=1)
-    ts = time.time() - t0
-    print("algor 1 time spent: {:.4f} ms".format(ts * 1000))
-    print("decoded: ")
-    for i in range(3):
-        print("  ", test_decoded[i])
-
-
-    def generate_random_data(length=50):
-        res = []
-        for i in range(length):
-            res.append(int(random.random() * 255))
-        return bytes(res)
-
-
-    test_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
-    print("Manufacturer: %s" % test_dev.get_manufacturer_string())
-    print("Product: %s" % test_dev.get_product_string())
-    print("Serial No: %s" % test_dev.get_serial_number_string())
-    test_dev.init_SPI(1, mode=1)
-    test_dev.set_CS1()
-    test_data_frame_length = 8192
-
-    data = generate_random_data(test_data_frame_length)
-
-    # while True:
-    #     print(bytes(test_dev.spi_read(16)).hex())
-
-    feed = test_dev.spi_read_write(data)
-    print("R/W loop accusation test result: {}".format(bytes(feed) == data))
-    t0 = time.time()
-    for ele in range(200000 // (test_data_frame_length // 4)):
-        test_dev.set_CS1(True)
-        feed = test_dev.spi_read_write(data)
-        test_dev.set_CS1(False)
-    print("1 sec of gtem data trans time spent {:.2f} ms".format((time.time() - t0) * 1000))
-
-    test_read_length = 4 * 3 * 200000
-
-    print("reading {} bytes of data from device".format(test_read_length))
-    t0 = time.time()
-    test_dev.set_CS1(True)
-    test_dev.spi_read(test_read_length)
-    test_dev.set_CS1(False)
-    print("data length: {}, time spent {:.2f} ms".format(len(feed), (time.time() - t0) * 1000))
-
-    print("testing 512MB of data (8K per frame) trans accusation")
-    data = generate_random_data(test_data_frame_length)
-    for i in range(65536):
-        t0 = time.time()
-        test_dev.set_CS1(True)
-        test_dev.spi_read_write(data)
-        test_dev.set_CS1(False)
-        # delay = 0.0004*8 - time.time() + t0
-        # if delay > 0:
-        #     time.sleep(delay)
-        # else:
-        #     print("too fast, timeout: {}us".format(int(delay * 1000000)))
-        print("time: {}us".format(int((time.time() - t0) * 1000000)))
-
-    test_dev.close()

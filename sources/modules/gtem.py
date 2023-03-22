@@ -9,6 +9,7 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+from multiprocessing import Manager, Process
 
 
 class Gtem24:
@@ -27,10 +28,12 @@ class Gtem24:
 
         self.__data = data
 
+        self.mul_result_dict = Manager().dict()
+
     def updateData(self, data: np.ndarray):
         self.__data = data
 
-    def gateTraceSecFieldExtract(self, t_len, filter_level=1):
+    def mul_getTSFE(self, t_len, filter_level=1):
         peak_point = self.peak_point
         add_time = self.emit_freq * t_len
         data_raw = self.__data.copy()
@@ -72,6 +75,27 @@ class Gtem24:
         x = np.linspace(1, self.__k_pulse_length, len(sin_noise_sum))
         x = x / (self.sample_rate / 1000)
         # print(sin_noise_sum)
+        self.mul_result_dict["x"] = x
+        self.mul_result_dict["sin_noise_sum"] = sin_noise_sum
+
+    def gateTraceSecFieldExtract(self, t_len, filter_level=1, no_wait=False):
+        p = Process(target=self.mul_getTSFE, args=(t_len, filter_level))
+        p.start()
+        if no_wait:
+            return p
+        else:
+            p.join()
+
+            x = self.mul_result_dict["x"]
+            sin_noise_sum = self.mul_result_dict["sin_noise_sum"]
+
+            return x, sin_noise_sum
+
+    def wait(self, process):
+        process.join()
+
+        x = self.mul_result_dict["x"]
+        sin_noise_sum = self.mul_result_dict["sin_noise_sum"]
 
         return x, sin_noise_sum
 
