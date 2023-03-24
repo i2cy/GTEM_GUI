@@ -30,6 +30,8 @@ from modules.globals import REAL_TIME_LINE_WIDTH, SEC_FILED_YRANGE, SEC_FILED_XR
 from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread
 
 
+TEST = True
+
 
 class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
@@ -607,11 +609,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         #     current_data = self.rtPlot_ch1
 
 
-if __name__ == '__main__':
-    global ti, cnt
-    app = QApplication(sys.argv)
-    ui = UIReceiver()
-
+def test(ui):
     cnt = 0
     batch_size = int(int(ui.comboBox_sampleRate.currentText()) / int(ui.comboBox_radiateFreq.currentText()))
     dt = batch_size / int(ui.comboBox_sampleRate.currentText())
@@ -621,9 +619,9 @@ if __name__ == '__main__':
     gt = Gtem24File("../sample/GTEM_tests/dataTEM1/220102_100601.bin")
     live = True
 
+    print("batch size: {}".format(batch_size))
 
-    def test():
-        global ti, cnt, ui
+    def test(ti, cnt, ui):
         while live:
             t1_0 = time.time()
             for i in range(batch_size):
@@ -642,12 +640,23 @@ if __name__ == '__main__':
             else:
                 time.sleep(delay)
 
-
-    t = threading.Thread(target=test)
+    t = threading.Thread(target=test, args=(ti, cnt, ui))
     t.start()
+    return t
+
+
+if __name__ == '__main__':
+    global ti, cnt
+    app = QApplication(sys.argv)
+    ui = UIReceiver()
+
+    if TEST:
+        t = test(ui)  # self loopback test
 
     ui.show()
     extco = app.exec_()
     live = False
-    t.join()
+
+    if TEST:
+        t.join()
     sys.exit(extco)

@@ -134,7 +134,7 @@ class TCA9539:
 
 class FPGACtl:
 
-    def __init__(self, i2c_bus_path: str, addr: int = 0x30):
+    def __init__(self, i2c_bus_path: str, addr: int = 0x30, debug: bool = False):
         """
         initialize a control interface for GTEM FPGA designed by Dr. Li
         :param i2c_bus_path: str, target i2c bus path, example: "/dev/i2c-2"
@@ -148,6 +148,8 @@ class FPGACtl:
         self.sample_rate_level = 0x0d
         # 0-16
         self.chn_amp_rate_level = [0, 0, 0]
+
+        self.debug = debug
 
     def __send_command(self):
         """
@@ -164,7 +166,12 @@ class FPGACtl:
                    (self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16)]
 
         cmd = bytes(payload)
-        self.interface_fd = wpi.wiringPiI2CWrite(self.interface_fd, cmd)
+
+        if self.debug:
+            print("command:", cmd.hex())
+        wpi.wiringPiI2CWrite(self.interface_fd, cmd[0])
+        wpi.wiringPiI2CWrite(self.interface_fd, cmd[1])
+        wpi.wiringPiI2CWrite(self.interface_fd, cmd[2])
 
     def start_FPGA(self):
         """
@@ -196,7 +203,8 @@ class FPGACtl:
         self.chn_is_open[1] = ch2
         self.chn_is_open[2] = ch3
 
-        self.__send_command()
+        if self.debug:
+            self.__send_command()
 
     def set_sample_rate_level(self, sample_rate_level):
         """
@@ -208,7 +216,8 @@ class FPGACtl:
         """
         self.sample_rate_level = sample_rate_level
 
-        self.__send_command()
+        if self.debug:
+            self.__send_command()
 
     def set_amp_rate_of_channels(self, ch1_amp, ch2_amp, ch3_amp):
         """
@@ -222,14 +231,21 @@ class FPGACtl:
         self.chn_amp_rate_level[1] = ch2_amp
         self.chn_amp_rate_level[2] = ch3_amp
 
-        self.__send_command()
+        if self.debug:
+            self.__send_command()
 
 
 if __name__ == '__main__':
+    import os
+    import time
+
+    os.system("sudo chown -Rh pi /dev")
+
     chip1 = TCA9554("/dev/i2c-2", 0x20)
     chip2 = TCA9554("/dev/i2c-2", 0x21)
     chip3 = TCA9554("/dev/i2c-2", 0x23)
     chip4 = TCA9539("/dev/i2c-2", 0x74)
+    fpga = FPGACtl("/dev/i2c-2")
 
     chip1.set_pin_mode(0x00)
     chip2.set_pin_mode(0x00)
@@ -245,3 +261,9 @@ if __name__ == '__main__':
     print("chip2 TCA9554 for CH2 verification result: {}".format(chip2.read_output_pins() == 0x02))
     print("chip3 TCA9554 for CH3 verification result: {}".format(chip3.read_output_pins() == 0x03))
     print("chip4 TCA9539 verification result: {}".format(chip4.read_output_pins() == 0x1234))
+
+    fpga.enable_channels(True, True, True)
+    fpga.set_sample_rate_level(0x0d)
+    fpga.set_amp_rate_of_channels(0x0f, 0x0f, 0x0f)
+    time.sleep(0.001)
+    fpga.start_FPGA()

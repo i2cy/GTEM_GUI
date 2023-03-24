@@ -6,3 +6,4 @@ ch347api
 matplotlib
 pyserial
 spidev
+wiringpi
