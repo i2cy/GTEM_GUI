@@ -99,7 +99,10 @@ class FPGACommunication:
 
             file_io.write(bytes(frame))  # write to file in sub process
 
-            frame = np.frombuffer(byte_array, dtype=np.int32)
+            dt = np.dtype(np.int32)
+            dt.newbyteorder(">")
+
+            frame = np.frombuffer(byte_array, dtype=dt)
 
             if not self.to_file_only:
                 if cnt < 20:
@@ -141,10 +144,6 @@ class FPGACommunication:
         self.mp_status["running"] = False
         while self.mp_status["file_lock"]:
             time.sleep(0.001)
-        try:
-            self.file_io.close()
-        except Exception as err:
-            print("warning: failed to close file,", err)
 
 
 def fpga_demo():
@@ -171,21 +170,18 @@ def fpga_demo():
         data = f.read()
         print("received data length: {}".format(len(data)))
         print("total frames: {}".format(len(data) / DATA_FRAME_SIZE))
-        first3 = np.frombuffer(data[0:4 * DATA_FRAME_SIZE], dtype=np.int32)
-        print("first 3 data of ch1: \n{}".format(first3[0::3]))
-        print("first 3 data of ch2: \n{}".format(first3[1::3]))
-        print("first 3 data of ch3: \n{}".format(first3[2::3]))
+        dt = np.dtype(np.int32)
+        dt.newbyteorder(">")
+        first4 = np.frombuffer(data[0:4 * DATA_FRAME_SIZE], dtype=dt)
+        print("first 4 data of ch1: \n{}\n{}\n".format(first4[0::3], [hex(ele)[2:].upper() for ele in first4[0::3]]))
+        print("first 4 data of ch2: \n{}\n{}\n".format(first4[1::3], [hex(ele)[2:].upper() for ele in first4[1::3]]))
+        print("first 4 data of ch3: \n{}\n{}\n".format(first4[2::3], [hex(ele)[2:].upper() for ele in first4[2::3]]))
         f.close()
 
 
-if __name__ == '__main__':
-    import os
-
-    os.system("sudo chown -Rh pi /dev")
-
-    # fpga_demo()
-
+def spi_demo():
     master = False
+    print("starting SPI Universal Receiver at {} bytes per frame".format(DATA_FRAME_SIZE * DATA_BATCH))
 
     if master:
         spi = spidev.SpiDev()
@@ -207,6 +203,16 @@ if __name__ == '__main__':
         spi.bits_per_word = 8
         while True:
             try:
-                print("received: ", [hex(ele) for ele in spi.readbytes(16)])
+                print("received: ", [hex(ele) for ele in spi.readbytes(DATA_FRAME_SIZE * DATA_BATCH)])
             except TimeoutError as err:
                 continue
+
+
+if __name__ == '__main__':
+    import os
+
+    os.system("sudo chown -Rh pi /dev")
+
+    fpga_demo()
+
+    spi_demo()

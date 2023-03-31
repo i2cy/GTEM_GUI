@@ -167,11 +167,12 @@ class FPGACtl:
 
         cmd = bytes(payload)
 
+        reg = cmd[0]
+        payload = int().from_bytes(cmd[1:], "little", signed=False)
+
         if self.debug:
             print("command:", cmd.hex())
-        wpi.wiringPiI2CWrite(self.interface_fd, cmd[0])
-        wpi.wiringPiI2CWrite(self.interface_fd, cmd[1])
-        wpi.wiringPiI2CWrite(self.interface_fd, cmd[2])
+        wpi.wiringPiI2CWriteReg16(self.interface_fd, reg, payload)
 
     def start_FPGA(self):
         """
@@ -247,23 +248,33 @@ if __name__ == '__main__':
     chip4 = TCA9539("/dev/i2c-2", 0x74)
     fpga = FPGACtl("/dev/i2c-2")
 
-    chip1.set_pin_mode(0x00)
-    chip2.set_pin_mode(0x00)
-    chip3.set_pin_mode(0x00)
-    chip4.set_pin_mode(0x0000)
-
-    chip1.write_pins(0x01)
-    chip2.write_pins(0x02)
-    chip3.write_pins(0x03)
-    chip4.write_pins(0x1234)
-
-    print("chip1 TCA9554 for CH1 verification result: {}".format(chip1.read_output_pins() == 0x01))
-    print("chip2 TCA9554 for CH2 verification result: {}".format(chip2.read_output_pins() == 0x02))
-    print("chip3 TCA9554 for CH3 verification result: {}".format(chip3.read_output_pins() == 0x03))
-    print("chip4 TCA9539 verification result: {}".format(chip4.read_output_pins() == 0x1234))
+    # chip1.set_pin_mode(0x00)
+    # chip2.set_pin_mode(0x00)
+    # chip3.set_pin_mode(0x00)
+    # chip4.set_pin_mode(0x0000)
+    #
+    # chip1.write_pins(0x01)
+    # chip2.write_pins(0x02)
+    # chip3.write_pins(0x03)
+    # chip4.write_pins(0x1234)
+    #
+    # print("chip1 TCA9554 for CH1 verification result: {}".format(chip1.read_output_pins() == 0x01))
+    # print("chip2 TCA9554 for CH2 verification result: {}".format(chip2.read_output_pins() == 0x02))
+    # print("chip3 TCA9554 for CH3 verification result: {}".format(chip3.read_output_pins() == 0x03))
+    # print("chip4 TCA9539 verification result: {}".format(chip4.read_output_pins() == 0x1234))
+    #
+    # time.sleep(0.5)
+    #
+    # chip1.write_pins(0xff)
+    # chip2.write_pins(0xff)
+    # chip3.write_pins(0xff)
+    # chip4.write_pins(0xffff)
 
     fpga.enable_channels(True, True, True)
     fpga.set_sample_rate_level(0x0d)
     fpga.set_amp_rate_of_channels(0x0f, 0x0f, 0x0f)
     time.sleep(0.001)
     fpga.start_FPGA()
+
+    time.sleep(1)
+    fpga.stop_FPGA()
