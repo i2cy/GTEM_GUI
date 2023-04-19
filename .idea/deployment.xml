@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="GTEM on RK3399" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="pi@SOM-RK3399v2:22 password" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="AliOS">
         <serverdata>
@@ -44,7 +44,21 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="pi@SOM-RK3399v2:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/pi/GTEM" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="pi@i2cy.tech:2206 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="pi@i2cy.tech:2211 password">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />

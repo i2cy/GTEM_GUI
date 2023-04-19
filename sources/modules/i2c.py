@@ -287,11 +287,12 @@ class FPGACtl:
                    (self.sample_rate_level % 16 << 4) | (self.chn_amp_rate_level[0] % 16),
                    (self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16)]
 
+        if self.debug:
+            print("command:", bytes(payload).hex())
+
         reg = payload[0]
         payload = int().from_bytes(payload[1:], "little", signed=False)
 
-        if self.debug:
-            print("command:", bytes(payload).hex())
         wpi.wiringPiI2CWriteReg16(self.interface_fd, reg, payload)
 
     def start_FPGA(self):
@@ -395,7 +396,11 @@ if __name__ == '__main__':
     fpga.set_amp_rate_of_channels(0x0f, 0x0f, 0x0f)
     time.sleep(0.001)
 
+    fpga.stop_FPGA()
+    time.sleep(1)
+
+    fpga.set_sample_rate_level(0x05)  # 10K
     fpga.start_FPGA()
 
-    time.sleep(1)
-    fpga.stop_FPGA()
+    # time.sleep(1)
+    # fpga.stop_FPGA()

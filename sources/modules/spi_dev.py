@@ -107,7 +107,7 @@ class FPGACom:
 
             byte_array = bytes(frame)
 
-            file_io.write(bytes(frame))  # write to file in sub process
+            file_io.write(byte_array)  # write to file in sub process
 
             dt = np.dtype(np.int32)
             dt.newbyteorder("<")
@@ -166,9 +166,13 @@ class FPGACom:
 def fpga_demo():
     test_file = "test.bin"
 
-    test_data_ch1 = b"\xa1\xa5\x5a\xa5"
-    test_data_ch2 = b"\xa2\xa5\x5a\xa5"
-    test_data_ch3 = b"\xa4\xa5\x5a\xa5"
+    # test_data_ch1 = b"\xa1\xa5\x5a\xa5"
+    # test_data_ch2 = b"\xa2\xa5\x5a\xa5"
+    # test_data_ch3 = b"\xa4\xa5\x5a\xa5"
+
+    test_data_ch1 = b"\xa1\xa2\xa3\xa4"
+    test_data_ch2 = b"\xa5\xa6\xa7\xa8"
+    test_data_ch3 = b"\xa9\xaa\xab\xac"
 
     ctl = FPGACtl("/dev/i2c-2")
     com = FPGACom(to_file_only=True)
