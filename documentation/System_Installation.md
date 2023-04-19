@@ -1,4 +1,8 @@
-1. 部署FRPC客户端，启动项`/etc/systemd/system/frpc.service`
+1. 更新apt源到bullseye并使用apt安装
+
+   `apt install python3-pip python3-pyqt5 python3-dev gcc nano`
+
+2. 部署FRPC客户端，启动项`/etc/systemd/system/frpc.service`
 
        [Unit]
        Description=Frp Client Service
@@ -21,14 +25,16 @@
        WantedBy=multi-user.target
        Alias=frpc.service
 
-2. 安装nano
 3. 拷贝源码
-4. 更新apt源到bullseye
-5. 使用apt安装pip、PyQt5(use --fix-missing)
-6. 更新pip
-7. 安装gcc, python3-dev
-8. 安装requirements.txt
-9. 修改`/etc/X11/xorg.conf.d/20-modesetting.conf`为以下内容，旋转屏幕
+4. 更新pip
+
+   `pip install -U pip`
+
+5. 安装requirements.txt
+
+   `pip install -r requirements.txt`
+
+6. 修改`/etc/X11/xorg.conf.d/20-modesetting.conf`为以下内容，旋转屏幕
 
        Section "Device"
            Identifier  "Rockchip Graphics"
@@ -64,58 +70,58 @@
            Option      "Rotate" "right"
        EndSection
 
-10. 修改`/usr/share/X11/xorg.conf.d/40-libinput.conf`为以下内容，旋转输入矩阵
+7. 修改`/usr/share/X11/xorg.conf.d/40-libinput.conf`为以下内容，旋转输入矩阵
 
-        # Match on all types of devices but joysticks
-        #
-        # If you want to configure your devices, do not copy this file.
-        # Instead, use a config snippet that contains something like this:
-        #
-        # Section "InputClass"
-        #   Identifier "something or other"
-        #   MatchDriver "libinput"
-        #
-        #   MatchIsTouchpad "on"
-        #   ... other Match directives ...
-        #   Option "someoption" "value"
-        # EndSection
-        #
-        # This applies the option any libinput device also matched by the other
-        # directives. See the xorg.conf(5) man page for more info on
-        # matching devices.
+       # Match on all types of devices but joysticks
+       #
+       # If you want to configure your devices, do not copy this file.
+       # Instead, use a config snippet that contains something like this:
+       #
+       # Section "InputClass"
+       #   Identifier "something or other"
+       #   MatchDriver "libinput"
+       #
+       #   MatchIsTouchpad "on"
+       #   ... other Match directives ...
+       #   Option "someoption" "value"
+       # EndSection
+       #
+       # This applies the option any libinput device also matched by the other
+       # directives. See the xorg.conf(5) man page for more info on
+       # matching devices.
         
-        Section "InputClass"
-                Identifier "libinput pointer catchall"
-                MatchIsPointer "on"
-                MatchDevicePath "/dev/input/event*"
-                Driver "libinput"
-        EndSection
+       Section "InputClass"
+               Identifier "libinput pointer catchall"
+               MatchIsPointer "on"
+               MatchDevicePath "/dev/input/event*"
+               Driver "libinput"
+       EndSection
         
-        Section "InputClass"
-                Identifier "libinput keyboard catchall"
-                MatchIsKeyboard "on"
-                MatchDevicePath "/dev/input/event*"
-                Driver "libinput"
-        EndSection
+       Section "InputClass"
+               Identifier "libinput keyboard catchall"
+               MatchIsKeyboard "on"
+               MatchDevicePath "/dev/input/event*"
+               Driver "libinput"
+       EndSection
         
-        Section "InputClass"
-                Identifier "libinput touchpad catchall"
-                MatchIsTouchpad "on"
-                MatchDevicePath "/dev/input/event*"
-                Driver "libinput"
-        EndSection
+       Section "InputClass"
+               Identifier "libinput touchpad catchall"
+               MatchIsTouchpad "on"
+               MatchDevicePath "/dev/input/event*"
+               Driver "libinput"
+       EndSection
         
-        Section "InputClass"
-                Identifier "libinput touchscreen catchall"
-                MatchIsTouchscreen "on"
-                MatchDevicePath "/dev/input/event*"
-                Option "TransformationMatrix" "0 1 0 -1 0 1 0 0 1"
-                Driver "libinput"
-        EndSection
+       Section "InputClass"
+               Identifier "libinput touchscreen catchall"
+               MatchIsTouchscreen "on"
+               MatchDevicePath "/dev/input/event*"
+               Option "TransformationMatrix" "0 1 0 -1 0 1 0 0 1"
+               Driver "libinput"
+       EndSection
         
-        Section "InputClass"
-                Identifier "libinput tablet catchall"
-                MatchIsTablet "on"
-                MatchDevicePath "/dev/input/event*"
-                Driver "libinput"
-        EndSection
+       Section "InputClass"
+               Identifier "libinput tablet catchall"
+               MatchIsTablet "on"
+               MatchDevicePath "/dev/input/event*"
+               Driver "libinput"
+       EndSection

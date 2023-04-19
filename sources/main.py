@@ -27,10 +27,14 @@ from modules.globals import REAL_TIME_PLOT_XRANGES, REAL_TIME_PLOT_YRANGES
 from modules.globals import REAL_TIME_PLOT_XTITLE, REAL_TIME_MAX_VIEW_TIME
 from modules.globals import MAX_BUFFER_TIME, REAL_TIME_LINE_COLOR, REAL_TIME_ALL_COLORS
 from modules.globals import REAL_TIME_LINE_WIDTH, SEC_FILED_YRANGE, SEC_FILED_XRANGE
-from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread
+from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread, GPSUpdaterThread, DataUpdaterThread
+from modules.spi_dev import FPGACtl, FPGACom
+from modules.i2c import BandWidthCtl, AmpRateCtl
 
-
-TEST = True
+TEST = False
+I2C_BUS = "/dev/i2c-2"
+SD_PATH = "/dev/mmcblk1p1"
+MOUNT_PATH = "/mnt"
 
 
 class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
@@ -43,11 +47,10 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
         # flags
         self.flag_recording = False
-        self.flag_gps_ready = True  # override with False when release
 
         # menu
         self.toolButton_GTEM.clicked.connect(self.onButtonGTEMClicked)
-        self.toolButton_historyFile.clicked.connect(self.onButtonHistoryClicked)
+        # self.toolButton_historyFile.clicked.connect(self.onButtonHistoryClicked)
 
         # bottom bar components
         self.toolButton_startRecording.clicked.connect(self.onButtonStartRecordClicked)
@@ -63,13 +66,13 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.pushButton_graphSwitchToSecField.clicked.connect(self.onButtonSwitchToSecFieldClicked)
 
         # history top bar
-        self.pushButton_graphSwitchToRealTime_hist.clicked.connect(self.onButtonSwitchToRealTimeClicked)
-        self.pushButton_graphSwitchToSecField_hist.clicked.connect(self.onButtonSwitchToSecFieldClicked)
+        # self.pushButton_graphSwitchToRealTime_hist.clicked.connect(self.onButtonSwitchToRealTimeClicked)
+        # self.pushButton_graphSwitchToSecField_hist.clicked.connect(self.onButtonSwitchToSecFieldClicked)
 
         # history bottom bar
-        self.toolButton_historyMainMenu.clicked.connect(self.onButtonReturnToMenuClicked)
-        self.toolButton_histSelectFile.clicked.connect(self.actionSelectHistoryFile)
-        self.horizontalSlider_historyView.sliderMoved.connect(self.doUpdateHistoryRtGraph)
+        # self.toolButton_historyMainMenu.clicked.connect(self.onButtonReturnToMenuClicked)
+        # self.toolButton_histSelectFile.clicked.connect(self.actionSelectHistoryFile)
+        # self.horizontalSlider_historyView.sliderMoved.connect(self.doUpdateHistoryRtGraph)
 
         self.history_file = Gtem24File("")
 
@@ -374,7 +377,6 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                                                              width=REAL_TIME_LINE_WIDTH
                                                          ))
 
-
         self.real_time_graph_updater = MainGraphUpdaterThread(self)
         self.sec_time_graph_updater = SecGraphUpdaterThread(self)
 
@@ -383,6 +385,46 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
         self.sfGraph_Ticker = QTimer()
         self.sfGraph_Ticker.timeout.connect(self.doUpdateSecFieldGraph)
+
+        # initialize filename indicator
+        self.label_titleFilenameHeader.setVisible(False)
+        self.label_filenameHeader_2.setVisible(False)
+
+        # FPGA communication
+        self.fpga_com = FPGACom()
+        self.fpga_ctl = FPGACtl(I2C_BUS)
+
+        self.fpga_com.start()
+
+        # GPS communication
+        self.gps_error_count = 0
+
+        self.gps_updater = GPSUpdaterThread(self)
+
+        self.gps_Ticker = QTimer()
+        self.gps_Ticker.timeout.connect(self.doUpdateGPSandSDCardSpace)
+        self.gps_Ticker.start(1000)
+
+        # data updater
+        self.data_updater = DataUpdaterThread(self)
+
+        self.data_Ticker = QTimer()
+        self.data_Ticker.timeout.connect(self.doUpdateData)
+
+        # controls of serial to parallel chips
+        self.bandwidth_ctl = BandWidthCtl(I2C_BUS, 0x20, 0x21, 0x23)
+        self.amp_ctl = AmpRateCtl(I2C_BUS, 0x74)
+
+        # initialized signal
+        self.amp_ctl.set_LED(True, True, True, True)
+
+        # timer
+        self.record_start_ts = 0
+
+    def staticGenerateFilename(self) -> str:
+        time_text = time.strftime("%Y%m%d_%H%M%S", self.gps_updater.gps.get_realtime())
+        ret = f"{time_text}_{self.comboBox_radiateFreq.currentText()}_{self.comboBox_sampleRate.currentText()}.bin"
+        return ret
 
     def onButtonSwitchToRealTimeClicked(self):
         self.stackedWidget_topBar.setCurrentIndex(0)
@@ -437,21 +479,92 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtGraph_Ticker.start(500)
         self.sfGraph_Ticker.start(1000)
         self.toolButton_startRecording.setText("正在采集")
-        self.label_titleFilenameHeader.setVisible(True)
-        self.label_filenameHeader_2.setVisible(True)
         self.toolButton_settings.setEnabled(False)
         self.toolButton_mainMenu.setEnabled(False)
         self.flag_recording = True
+
+        # set init timestamp
+        self.record_start_ts = time.time()
+
+        # reset buffer
+        self.buf_realTime_ch1.reset(25000 * 5, sample_rate=int(self.comboBox_sampleRate.currentText()),
+                                    freq=float(self.comboBox_radiateFreq.currentText()))
+        self.buf_realTime_ch2.reset(25000 * 5, sample_rate=int(self.comboBox_sampleRate.currentText()),
+                                    freq=float(self.comboBox_radiateFreq.currentText()))
+        self.buf_realTime_ch3.reset(25000 * 5, sample_rate=int(self.comboBox_sampleRate.currentText()),
+                                    freq=float(self.comboBox_radiateFreq.currentText()))
+
+        # reset graphs
+        self.rtPlotWeight_all.setLimits(xMin=-10, xMax=5)
+        self.rtPlotWeight_all.setXRange(*REAL_TIME_PLOT_XRANGES)
+        self.rtPlotWeight_ch1.setLimits(xMin=-10, xMax=5)
+        self.rtPlotWeight_ch1.setXRange(*REAL_TIME_PLOT_XRANGES)
+        self.rtPlotWeight_ch2.setLimits(xMin=-10, xMax=5)
+        self.rtPlotWeight_ch2.setXRange(*REAL_TIME_PLOT_XRANGES)
+        self.rtPlotWeight_ch3.setLimits(xMin=-10, xMax=5)
+        self.rtPlotWeight_ch3.setXRange(*REAL_TIME_PLOT_XRANGES)
+
+        # load FPGA configuration
+        self.fpga_ctl.set_sample_rate_level(self.comboBox_sampleRate.currentIndex())
+        self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentIndex(),
+                                               self.comboBox_ch2Amp.currentIndex(),
+                                               self.comboBox_ch3Amp.currentIndex())
+
+        # load filename
+        filename = self.staticGenerateFilename()
+        abs_path = f"{MOUNT_PATH}/{filename}"
+        self.fpga_com.set_output_file(abs_path)
+
+        # start FPGA
+        self.fpga_com.open()
+        self.fpga_ctl.start_FPGA()
+
+        # set amp rate
+        self.amp_ctl.set_amp_rate(
+            self.comboBox_ch1Amp.currentText(),
+            self.comboBox_ch2Amp.currentText(),
+            self.comboBox_ch3Amp.currentText(),
+        )
+
+        # set bandwidth
+        self.bandwidth_ctl.set_bandwidth(
+            self.comboBox_ch1BandWidth.currentText(),
+            self.comboBox_ch2BandWidth.currentText(),
+            self.comboBox_ch3BandWidth.currentText(),
+        )
+
+        # update filename display
+        self.label_titleFilenameHeader.setVisible(True)
+        self.label_titleFilenameHeader.setText("写入：")
+        self.doUpdateFilenameHeader(filename)
+
+        # start data updater
+        self.data_updater.reset()
+        self.data_Ticker.start(2)
 
     def actionStopRecording(self):
         self.rtGraph_Ticker.stop()
         self.sfGraph_Ticker.stop()
         self.toolButton_startRecording.setText("开始采集")
-        self.label_titleFilenameHeader.setVisible(False)
-        self.label_filenameHeader_2.setVisible(False)
         self.toolButton_settings.setEnabled(True)
         self.toolButton_mainMenu.setEnabled(True)
         self.flag_recording = False
+
+        # stop FPGA
+        self.fpga_com.close()
+        self.fpga_ctl.stop_FPGA()
+
+        # stop data update
+        self.data_Ticker.stop()
+
+        # update saved filename
+        self.label_titleFilenameHeader.setText("已保存：")
+
+        # reset timer
+        self.record_start_ts = 0.0
+        ta = time.localtime(0.0)
+        time_str = time.strftime("%H:%M:%S", ta)
+        self.label_recordedTime_2.setText(time_str)
 
     def actionSelectHistoryFile(self):
         filename = QFileDialog.getOpenFileName(caption="打开",
@@ -471,11 +584,67 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
     def doUpdateHistoryRtGraph(self):
         pass
 
-    def doUpdateGpsStatus(self, value):
-        self.label_gpsStatus_2.setText(value)
+    def doUpdateGPSandSDCardSpace(self):
+        self.gps_updater.start()
+
+        # detect SD card
+        def decode_df(msg: str) -> float:
+            msg = msg.split(" ")
+            while "" in msg:
+                msg.remove("")
+            total = int(msg[1])
+            free = int(msg[3])
+            return free * 100 / total
+
+        if os.path.exists(SD_PATH):
+            p = os.popen("df")
+            data = p.readlines()
+            p.close()
+            data = data[1:]
+            value = -1
+            for ele in data:
+                if SD_PATH in ele:
+                    value = decode_df(ele)
+
+            if value == -1:
+                os.system(f"sudo mount {SD_PATH} {MOUNT_PATH}")
+                p = os.popen("df")
+                data = p.readlines()
+                p.close()
+                value = -1
+                for ele in data:
+                    if SD_PATH in ele:
+                        value = decode_df(ele)
+
+            self.progressBar.setEnabled(True)
+            self.progressBar.setValue(int(value))
+        else:
+            self.progressBar.setEnabled(False)
+
+        # update GPS
+        if self.gps_updater.gps_status:
+            self.toolButton_startRecording.setEnabled(True)
+            self.gps_error_count = 0
+        else:
+            if self.gps_error_count > 3:
+                if self.flag_recording:
+                    self.actionStopRecording()
+                self.toolButton_startRecording.setEnabled(False)
+            else:
+                self.gps_error_count += 1
+
+        # update timer
+        if self.flag_recording:
+            ta = time.localtime(time.time() - self.record_start_ts)
+            time_str = time.strftime("%H:%M:%S", ta)
+            self.label_recordedTime_2.setText(time_str)
 
     def doUpdateFilenameHeader(self, value):
+        self.label_filenameHeader_2.setVisible(True)
         self.label_filenameHeader_2.setText("\"{}\"".format(value))
+
+    def doUpdateData(self):
+        self.data_updater.start()
 
     def doUpdateBattery(self, value):
         self.label_batteryRemains_2.setText("{}%".format(value))
@@ -501,6 +670,10 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtPlotWeight_ch3.setRange(xRange=REAL_TIME_PLOT_XRANGES, padding=0)
 
     def doUpdateRealTimeGraph(self):
+
+        # blink LED
+        self.amp_ctl.set_LED(not self.amp_ctl.leds[0])
+
         if self.stackedWidget_topBar.currentIndex() != 0 or self.real_time_graph_updater.isRunning():
             return
 
@@ -563,7 +736,6 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         # self.rtPlotWeight_ch2.setRange(xRange=x_range, yRange=y_range, padding=0)
         # self.rtPlotWeight_ch3.setLimits(xMin=xmin, xMax=data[0][-1])
         # self.rtPlotWeight_ch3.setRange(xRange=x_range, yRange=y_range, padding=0)
-
 
     def doUpdateSecFieldGraph(self):
         if self.stackedWidget_topBar.currentIndex() != 1 or self.sec_time_graph_updater.isRunning():
@@ -651,12 +823,15 @@ if __name__ == '__main__':
     ui = UIReceiver()
 
     if TEST:
-        t = test(ui)  # self loopback test
+        # t = test(ui)  # self loopback test
+        ui.flag_debug = True
 
-    ui.show()
+    ui.showMaximized()
     extco = app.exec_()
     live = False
 
-    if TEST:
-        t.join()
+    ui.fpga_com.kill()
+
+    # if TEST:
+    #     t.join()
     sys.exit(extco)

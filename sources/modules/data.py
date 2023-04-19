@@ -49,6 +49,10 @@ class PlotBuf:
         self.__data.updateOne(data)
         self.__time.updateOne(timestamp)
 
+    def updateBatch(self, data, x):
+        self.__data.updateBatch(data)
+        self.__time.updateBatch(x)
+
     def getBuf(self, latest=25000):
         dt = int((time.time() - self.__last_fetch_ts) * self.__freq) / self.__freq
         self.__last_fetch_ts = time.time()
@@ -124,6 +128,17 @@ class TimeBuf(object):
         self.__index_in += 1
         if self.__index_in >= self.buf_length:
             self.__index_in = 0
+
+    def updateBatch(self, timestamp):
+        batch_length = len(timestamp)
+        left = self.buf_length - self.__index_in
+        if batch_length <= left:
+            self.__data[self.__index_in:self.__index_in + batch_length] = timestamp
+            self.__index_in += batch_length
+        else:
+            self.__data[self.__index_in:] = timestamp[:left]
+            self.__index_in += batch_length - self.buf_length
+            self.__data[:self.__index_in] = timestamp[self.__index_in - 1:]
 
 
 class DataBuf(object):
@@ -227,4 +242,13 @@ class DataBuf(object):
         if self.__index_in >= self.buf_length:
             self.__index_in = 0
 
-
+    def updateBatch(self, data):
+        batch_length = len(data)
+        left = self.buf_length - self.__index_in
+        if batch_length <= left:
+            self.__data[self.__index_in:self.__index_in + batch_length] = data
+            self.__index_in += batch_length
+        else:
+            self.__data[self.__index_in:] = data[:left]
+            self.__index_in += batch_length - self.buf_length
+            self.__data[:self.__index_in] = data[self.__index_in - 1:]

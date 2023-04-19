@@ -21,24 +21,25 @@ MAX_FREQ = 48_000_000
 BITS_PER_WORD = 8
 SPI_MODE = 0b00
 
-DATA_BATCH = 60
+DATA_BATCH = 60 * 3
 DATA_FRAME_SIZE = 3 * 4
 
 
-class FPGACommunication:
+class FPGACom:
 
-    def __init__(self, to_file_only: bool = False):
+    def __init__(self, to_file_only: bool = False, debug=False):
 
         self.to_file_only = to_file_only
         self.mp_status = Manager().dict({"live": True,
                                          "running": False,
                                          "file_lock": True,
-                                         "filename": ""})
+                                         "filename": "",
+                                         "debug": debug})
 
-        self.mp_raw_data_queue = Queue(200_000 // DATA_BATCH)
-        self.mp_ch1_data_queue_x20 = Queue(200_000 // DATA_BATCH // 20)
-        self.mp_ch2_data_queue_x20 = Queue(200_000 // DATA_BATCH // 20)
-        self.mp_ch3_data_queue_x20 = Queue(200_000 // DATA_BATCH // 20)
+        self.mp_raw_data_queue = Queue(200_000_000 // DATA_BATCH)
+        self.mp_ch1_data_queue_x400 = Queue(200_000_000 // DATA_BATCH // 400)
+        self.mp_ch2_data_queue_x400 = Queue(200_000_000 // DATA_BATCH // 400)
+        self.mp_ch3_data_queue_x400 = Queue(200_000_000 // DATA_BATCH // 400)
 
         self.spi_dev = spidev.SpiDev()
         self.spi_dev.open(*SPI_DEV)
@@ -51,12 +52,12 @@ class FPGACommunication:
 
         self.processes = []
 
-        self.start()
-
     def set_output_file(self, filename):
         self.mp_status["filename"] = filename
 
     def proc_spi_receiver(self):
+        if self.mp_status["debug"]:
+            print("proc_spi_receiver started")
         while self.mp_status["live"]:
             if not self.mp_status["running"]:  # 待机状态
                 time.sleep(0.000_001)
@@ -66,6 +67,8 @@ class FPGACommunication:
             except TimeoutError:
                 continue
             self.mp_raw_data_queue.put(data)
+        if self.mp_status["debug"]:
+            print("proc_spi_receiver stopped")
 
     def proc_data_process(self):
         ch1_batch = []
@@ -76,12 +79,17 @@ class FPGACommunication:
         file_closed = True
         file_io = None
 
+        if self.mp_status["debug"]:
+            print("proc_data_process started")
+
         while self.mp_status["live"]:
             if not self.mp_status["running"]:  # 待机状态
                 if not file_closed:
                     file_io.close()
                     file_closed = True
                     self.mp_status["file_lock"] = False
+                    if self.mp_status["debug"]:
+                        print("proc_data_process file closed")
                 time.sleep(0.000_001)
                 continue
 
@@ -89,9 +97,11 @@ class FPGACommunication:
                 file_io = open(self.mp_status["filename"], "wb")
                 file_closed = False
                 self.mp_status["file_lock"] = True
+                if self.mp_status["debug"]:
+                    print("proc_data_process file opened")
 
             try:
-                frame = self.mp_raw_data_queue.get()
+                frame = self.mp_raw_data_queue.get(timeout=0.5)
             except Empty:
                 continue
 
@@ -100,29 +110,30 @@ class FPGACommunication:
             file_io.write(bytes(frame))  # write to file in sub process
 
             dt = np.dtype(np.int32)
-            dt.newbyteorder(">")
+            dt.newbyteorder("<")
 
             frame = np.frombuffer(byte_array, dtype=dt)
 
             if not self.to_file_only:
-                if cnt < 20:
+                if cnt < 400:
                     ch1_batch.extend(frame[0::3].tolist())
                     ch2_batch.extend(frame[1::3].tolist())
                     ch3_batch.extend(frame[2::3].tolist())
                     cnt += 1
                 else:
-                    self.mp_ch1_data_queue_x20.put(ch1_batch)
-                    self.mp_ch2_data_queue_x20.put(ch2_batch)
-                    self.mp_ch3_data_queue_x20.put(ch3_batch)
+                    ch1_batch.extend(frame[0::3].tolist())
+                    ch2_batch.extend(frame[1::3].tolist())
+                    ch3_batch.extend(frame[2::3].tolist())
+                    self.mp_ch1_data_queue_x400.put(ch1_batch)
+                    self.mp_ch2_data_queue_x400.put(ch2_batch)
+                    self.mp_ch3_data_queue_x400.put(ch3_batch)
                     ch1_batch.clear()
                     ch2_batch.clear()
                     ch3_batch.clear()
+                    cnt = 0
 
-                ch1_batch.extend(frame[0::3])
-                ch2_batch.extend(frame[1::3])
-                ch3_batch.extend(frame[2::3])
-
-                cnt = 0
+        if self.mp_status["debug"]:
+            print("proc_data_process stopped")
 
     def start(self):
         self.mp_status["live"] = True  # start signal
@@ -132,13 +143,19 @@ class FPGACommunication:
 
         [ele.start() for ele in self.processes]
 
-    def stop(self):
+    def debug(self, value: bool = True):
+        self.mp_status["debug"] = value
+
+    def kill(self):
         self.close()
         self.mp_status["live"] = False  # stop signal
         [ele.join() for ele in self.processes]
+        self.processes.clear()
 
     def open(self):
         self.mp_status["running"] = True
+        while not self.mp_status["file_lock"]:
+            time.sleep(0.001)
 
     def close(self):
         self.mp_status["running"] = False
@@ -149,34 +166,80 @@ class FPGACommunication:
 def fpga_demo():
     test_file = "test.bin"
 
+    test_data_ch1 = b"\xa1\xa5\x5a\xa5"
+    test_data_ch2 = b"\xa2\xa5\x5a\xa5"
+    test_data_ch3 = b"\xa4\xa5\x5a\xa5"
+
     ctl = FPGACtl("/dev/i2c-2")
-    com = FPGACommunication(to_file_only=True)
+    com = FPGACom(to_file_only=True)
+    com.debug(False)
     com.set_output_file(test_file)
     ctl.enable_channels(True, True, True)
-    ctl.set_sample_rate_level(0x0d)
-    ctl.set_amp_rate_of_channels(0x0f, 0x0f, 0x0f)
-    print("starting communication receiver")
-    com.open()
-    time.sleep(1)
-    print("starting FPGA transmission")
-    ctl.start_FPGA()
-    time.sleep(1)
-    print("finishing test")
-    com.close()
-    com.stop()
-    ctl.stop_FPGA()
 
-    with open(test_file, "rb") as f:
-        data = f.read()
-        print("received data length: {}".format(len(data)))
-        print("total frames: {}".format(len(data) / DATA_FRAME_SIZE))
-        dt = np.dtype(np.int32)
-        dt.newbyteorder(">")
-        first4 = np.frombuffer(data[0:4 * DATA_FRAME_SIZE], dtype=dt)
-        print("first 4 data of ch1: \n{}\n{}\n".format(first4[0::3], [hex(ele)[2:].upper() for ele in first4[0::3]]))
-        print("first 4 data of ch2: \n{}\n{}\n".format(first4[1::3], [hex(ele)[2:].upper() for ele in first4[1::3]]))
-        print("first 4 data of ch3: \n{}\n{}\n".format(first4[2::3], [hex(ele)[2:].upper() for ele in first4[2::3]]))
-        f.close()
+    level2str = ["500", "1k", "2k", "4k", "8k", "10k", "20k", "32k", "40k", "80k", "25k", "50k", "100k", "200k", "400k",
+                 "800k"]
+    print("starting communication receiver")
+    com.start()
+
+    for level in range(3, 13):
+        print("testing sample rate level:", level2str[level])
+        ctl.set_sample_rate_level(level)
+        ctl.set_amp_rate_of_channels(0x0f, 0x0f, 0x0f)
+        time.sleep(0.5)
+        print(" + starting FPGA transmission for 5 seconds")
+        com.open()
+        ctl.start_FPGA()
+        time.sleep(5)
+        print(" - finishing transmission")
+        com.close()
+        time.sleep(0.5)
+        ctl.stop_FPGA()
+        print(" + testing data integrity")
+
+        with open(test_file, "rb") as f:
+            data = f.read()
+            print("    received data length: {}".format(len(data)))
+            print("    frames: {}".format(len(data) / DATA_FRAME_SIZE))
+            dt = np.dtype(np.int32)
+            dt.newbyteorder("<")
+            first4 = np.frombuffer(data[0:4 * DATA_FRAME_SIZE], dtype=dt)
+            sliced = []
+            for index, ele in enumerate(data[::4]):
+                sliced.append(data[index * 4: (index + 1) * 4])
+            print("    first 4 data of ch1: \n    {}\n    {}".format(first4[0::3],
+                                                                     [ele.hex().upper() for ele in
+                                                                      sliced[0:4 * 3:3]]))
+            print("    first 4 data of ch2: \n    {}\n    {}".format(first4[1::3],
+                                                                     [ele.hex().upper() for ele in
+                                                                      sliced[1:4 * 3:3]]))
+            print("    first 4 data of ch3: \n    {}\n    {}".format(first4[2::3],
+                                                                     [ele.hex().upper() for ele in
+                                                                      sliced[2:4 * 3:3]]))
+
+            f.close()
+
+        print(" = real sample rate: {:.2f} KS/s".format(len(sliced) / 5000))
+
+        correct_ch1 = sum([ele == test_data_ch1 for ele in sliced[0::3]])
+        correct_ch2 = sum([ele == test_data_ch2 for ele in sliced[1::3]])
+        correct_ch3 = sum([ele == test_data_ch3 for ele in sliced[2::3]])
+
+        for ele in sliced[0::3]:
+            if ele != test_data_ch1:
+                print(" = Incorrect data example in CH1: {}".format(ele.hex().upper()))
+                break
+
+        print(" = CH1 data integrity: {:.2f}% correct of {} samples in total".format(100 * (correct_ch1 / (len(sliced) / 3)),
+                                                                                     len(sliced) / 3))
+        print(" = CH2 data integrity: {:.2f}% correct of {} samples in total".format(100 * (correct_ch2 / (len(sliced) / 3)),
+                                                                                     len(sliced) / 3))
+        print(" = CH3 data integrity: {:.2f}% correct of {} samples in total".format(100 * (correct_ch3 / (len(sliced) / 3)),
+                                                                                     len(sliced) / 3))
+
+        time.sleep(0.2)
+        # os.remove(test_file)
+
+    com.kill()
 
 
 def spi_demo():
@@ -215,4 +278,4 @@ if __name__ == '__main__':
 
     fpga_demo()
 
-    spi_demo()
+    # spi_demo()

@@ -11,7 +11,10 @@ from PyQt5.Qt import pyqtSignal
 import time
 from .globals import *
 from .gtem import Gtem24
-from multiprocessing import Manager, Process
+from .uart import GPS, GPS_DEVICE, GPS_BR
+from .spi_dev import DATA_BATCH, DATA_FRAME_SIZE
+from queue import Empty
+from multiprocessing import Manager, Process, Queue
 
 
 class TestThread(QThread):
@@ -116,6 +119,92 @@ class SecGraphUpdaterThread(QThread):
             self.last_rander_data3 = c_ch3.wait(p_ch3)
 
 
+class GPSUpdaterThread(QThread):
+
+    def __init__(self, parent):
+        super().__init__()
+        self.parent = parent
+        self.gps = GPS(GPS_DEVICE, GPS_BR)
+        self.gps_status = False
+
+    def run(self) -> None:
+        status = self.gps.manually_update()
+        if status:
+            if self.gps.loc_status:
+                self.parent.label_gpsStatus_2.setText("成功定位")
+                self.gps_status = True
+            else:
+                self.parent.label_gpsStatus_2.setText("正在搜星")
+                self.gps_status = False
+        else:
+            self.parent.label_gpsStatus_2.setText("不可用")
+            self.gps_false = False
+
+
+class DataUpdaterThread(QThread):
+
+    def __init__(self, parent):
+        super().__init__()
+        self.parent = parent
+        self.timestamp = 0.0
+        self.dt_i = 1 / int(self.parent.comboBox_sampleRate.currentText())
+        self.fifo_ch1: Queue = self.parent.fpga_com.mp_ch1_data_queue_x400
+        self.fifo_ch2: Queue = self.parent.fpga_com.mp_ch2_data_queue_x400
+        self.fifo_ch3: Queue = self.parent.fpga_com.mp_ch3_data_queue_x400
+
+    def reset(self):
+        self.dt_i = 1 / int(self.parent.comboBox_sampleRate.currentText())
+        self.timestamp = 0.0
+
+    def run(self):
+        self.parent.amp_ctl.set_LED(led3=not self.parent.amp_ctl.leds[2])
+
+        try:
+            data = self.fifo_ch1.get_nowait()
+            if len(data):
+                self.parent.buf_realTime_ch1.updateBatch(
+                    data,
+                    np.linspace(
+                        self.timestamp,
+                        self.timestamp + len(data) * self.dt_i, len(data),
+                        dtype=np.float32
+                    )
+                )
+        except Empty:
+            pass
+        try:
+            data = self.fifo_ch2.get_nowait()
+            if len(data):
+                self.parent.buf_realTime_ch2.updateBatch(
+                    data,
+                    np.linspace(
+                        self.timestamp,
+                        self.timestamp + len(data) * self.dt_i, len(data),
+                        dtype=np.float32
+                    )
+                )
+        except Empty:
+            pass
+        try:
+            data = self.fifo_ch3.get_nowait()
+            if len(data):
+                self.parent.buf_realTime_ch3.updateBatch(
+                    data,
+                    np.linspace(
+                        self.timestamp,
+                        self.timestamp + len(data) * self.dt_i, len(data),
+                        dtype=np.float32
+                    )
+                )
+        except Empty:
+            pass
+
+        try:
+            self.timestamp += len(data) * self.dt_i
+        except:
+            pass
+
+
 class MainGraphUpdaterThread(QThread):
 
     def __init__(self, parent):
@@ -129,6 +218,8 @@ class MainGraphUpdaterThread(QThread):
         self.last_rander_range = ()
 
     def update_graph(self):
+        self.parent.amp_ctl.set_LED(led2=True)
+
         if self.last_rander_tab == 1:  # channel 1
             self.parent.rtPlot_ch1.setData(*self.last_rander_data1)
 
@@ -156,14 +247,14 @@ class MainGraphUpdaterThread(QThread):
         self.parent.rtPlotWeight_ch3.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
                                               padding=0)
 
+        self.parent.amp_ctl.set_LED(led2=False)
+
     def run(self):
         # if tab stays in page of real time graph
         sample_rate = int(self.parent.comboBox_sampleRate.currentText())
         emit_rate = int(self.parent.comboBox_radiateFreq.currentText())
         tab_index = self.parent.tabWidget_channelGraph.currentIndex()
         current_buf = None
-
-        self.last_rander_tab = tab_index
 
         if tab_index == 1:  # ch1 args
             current_buf = self.parent.buf_realTime_ch1
@@ -197,10 +288,19 @@ class MainGraphUpdaterThread(QThread):
             self.last_rander_data2 = data
             dt, data = self.parent.buf_realTime_ch3.getBuf(view_range)
             self.last_rander_data3 = data
+
+
             x_range = current_plot.getViewBox().viewRange()
             y_range = x_range[1]
             x_range = x_range[0]
             x_range = [x_range[0] + dt, x_range[1] + dt]
+
+        y_range = list(REAL_TIME_PLOT_YRANGES)
+        if y_range[0] > data[0].min():
+            y_range[0] = data[0].min() * 0.05
+
+        if y_range[1] < data[1].max():
+            y_range[1] = data[1].max() * 0.05
 
         xmin = data[0][0]
         xmax = data[0][-1]

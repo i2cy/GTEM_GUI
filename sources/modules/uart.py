@@ -4,6 +4,8 @@
 # Project: 9.3 地面接收机软件
 # Filename: uart
 # Created on: 2022/12/14
+import threading
+import time
 
 import serial
 
@@ -11,27 +13,161 @@ GPS_DEVICE = "/dev/ttyACM0"
 GPS_BR = 9600
 
 
+class Degree:
+
+    def __init__(self, degree, minute):
+        self.degree: float = degree
+        self.minute: float = minute
+
+    def as_degree(self):
+        return self.degree + self.minute / 60
+
+    def as_minute(self):
+        return self.degree * 60 + self.minute
+
+
 class GPS:
 
-    def __init__(self, device, baud_rate=9600):
-        self.__clt = serial.Serial(device, baud_rate)
+    def __init__(self, device, baud_rate=9600, timeout=0.1, timezone_offset=8):
+        self.__clt = serial.Serial(device, baud_rate, timeout=timeout)
+        self.__threads = []
+        self.__live = False
+        self.timezone_offset = timezone_offset
 
-    def read_raw(self):
+        self.utc_ts: float = 0.0  # timestamp
+        self.loc_status: bool = False
+        self.latitude: Degree = Degree(0, 0)
+        self.longitude: Degree = Degree(0, 0)
+        self.north_hemisphere: bool = True
+        self.east_longitude: bool = True
+        self.ground_speed: float = 0.0
+        self.ground_direction: float = 0.0
+
+    def start(self):
+        # create thread
+        self.__threads.append(threading.Thread(target=self._receiver))
+        self.__live = True
+
+        # run threads
+        [ele.start() for ele in self.__threads]
+
+    def read_raw(self, timeout=None):
+        if timeout is not None:
+            self.__clt.timeout = timeout
         return self.__clt.readline().decode()
 
+    def get_realtime(self) -> time.struct_time:
+        ret = self.utc_ts + self.timezone_offset * 3600
+        return time.localtime(ret)
+
+    def manually_update(self, timeout=2) -> bool:
+        raw = self.read_raw(timeout)
+        if len(raw) < 6:
+            return False
+        else:
+            try:
+                raw = raw.split(",")
+                if raw[0] != "$GNRMC":
+                    return False
+
+                if raw[1] and raw[9]:
+                    self.utc_ts = time.mktime(time.strptime(raw[9] + raw[1], "%d%m%y%H%M%S.00"))
+
+                if raw[2]:
+                    self.loc_status = raw[2] == "A"
+
+                if raw[3]:
+                    self.latitude.degree = float(raw[3][0:2])
+                    self.latitude.minute = float(raw[3][2:])
+
+                if raw[4]:
+                    self.north_hemisphere = raw[4] == "N"
+
+                if raw[5]:
+                    self.longitude.degree = float(raw[5][0:3])
+                    self.longitude.minute = float(raw[5][3:])
+
+                if raw[6]:
+                    self.east_longitude = raw[6] == "E"
+
+                if raw[7]:
+                    self.ground_speed = float(raw[7]) * 1.85 / 3.6
+
+                if raw[8]:
+                    self.ground_direction = float(raw[8])
+
+            except Exception as err:
+                print("GPS error:", err)
+                return False
+        return True
 
     def _receiver(self):
-        pass
+        while self.__live:
+            raw = self.read_raw()
+            if len(raw) < 6:
+                continue
+            else:
+                try:
+                    raw = raw.split(",")
+                    if raw[0] != "$GNRMC":
+                        continue
+
+                    if raw[1] and raw[9]:
+                        self.utc_ts = time.mktime(time.strptime(raw[9] + raw[1], "%d%m%y%H%M%S.00"))
+
+                    if raw[2]:
+                        self.loc_status = raw[2] == "A"
+
+                    if raw[3]:
+                        self.latitude.degree = float(raw[3][0:2])
+                        self.latitude.minute = float(raw[3][2:])
+
+                    if raw[4]:
+                        self.north_hemisphere = raw[4] == "N"
+
+                    if raw[5]:
+                        self.longitude.degree = float(raw[5][0:3])
+                        self.longitude.minute = float(raw[5][3:])
+
+                    if raw[6]:
+                        self.east_longitude = raw[6] == "E"
+
+                    if raw[7]:
+                        self.ground_speed = float(raw[7]) * 1.85 / 3.6
+
+                    if raw[8]:
+                        self.ground_direction = float(raw[8])
+
+                except Exception as err:
+                    print("GPS error:", err)
+                    continue
 
     def close(self):
+        self.__live = False
+        [ele.join() for ele in self.__threads]
+        self.__threads.clear()
         self.__clt.close()
 
 
 if __name__ == '__main__':
     gps_test = GPS(GPS_DEVICE, GPS_BR)
+    gps_test.start()
     while True:
         try:
-            print(gps_test.read_raw(), end="")
+            # print(gps_test.read_raw(), end="")
+            lat_sign = "S"
+            if gps_test.north_hemisphere:
+                lat_sign = "N"
+            long_sign = "W"
+            if gps_test.east_longitude:
+                long_sign = "E"
+            print(f"---- GPS status: {gps_test.loc_status} ----\n"
+                  f"time now: {time.strftime('%Y-%m-%d %H:%M:%S', gps_test.get_realtime())}\n"
+                  f"latitude: {lat_sign} {gps_test.latitude.degree}°{gps_test.latitude.minute}'\n"
+                  f"longitude: {long_sign} {gps_test.longitude.degree}°{gps_test.longitude.minute}'\n"
+                  f"speed: {gps_test.ground_speed:.2f} m/s\n"
+                  f"towards: {gps_test.ground_direction}°")
+            time.sleep(1)
         except KeyboardInterrupt:
             break
 
