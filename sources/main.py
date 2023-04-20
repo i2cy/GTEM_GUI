@@ -423,7 +423,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
     def staticGenerateFilename(self) -> str:
         time_text = time.strftime("%Y%m%d_%H%M%S", self.gps_updater.gps.get_realtime())
-        ret = f"{time_text}_{self.comboBox_radiateFreq.currentText()}_{self.comboBox_sampleRate.currentText()}.bin"
+        ret = f"{time_text}_{self.comboBox_radiateFreq.currentText()}_{self.comboBox_sampleRate.currentText()}"
         return ret
 
     def onButtonSwitchToRealTimeClicked(self):
@@ -512,7 +512,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
         # load filename
         filename = self.staticGenerateFilename()
-        abs_path = f"{MOUNT_PATH}/{filename}"
+        abs_path = f"{MOUNT_PATH}/{filename}.bin"
         self.fpga_com.set_output_file(abs_path)
 
         # start FPGA
@@ -536,7 +536,12 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         # update filename display
         self.label_titleFilenameHeader.setVisible(True)
         self.label_titleFilenameHeader.setText("写入：")
-        self.doUpdateFilenameHeader(filename)
+        self.doUpdateFilenameHeader(f"{filename}.bin")
+
+        # enable gps_save
+        abs_path = f"{MOUNT_PATH}/{filename}_gps.txt"
+        self.gps_updater.gps.set_gps_file(abs_path)
+        self.gps_updater.gps.enable_gps_dump(True)
 
         # start data updater
         self.data_updater.reset()
@@ -559,6 +564,9 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
         # update saved filename
         self.label_titleFilenameHeader.setText("已保存：")
+
+        # stop gps dump
+        self.gps_updater.gps.enable_gps_dump(False)
 
         # reset timer
         self.record_start_ts = 0.0

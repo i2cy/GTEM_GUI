@@ -43,6 +43,11 @@ class GPS:
         self.ground_speed: float = 0.0
         self.ground_direction: float = 0.0
 
+        self.file_io = None
+        self.filename = None
+
+        self.flag_gps_dump = False
+
     def start(self):
         # create thread
         self.__threads.append(threading.Thread(target=self._receiver))
@@ -50,6 +55,14 @@ class GPS:
 
         # run threads
         [ele.start() for ele in self.__threads]
+
+    def set_gps_file(self, filename):
+        self.filename = filename
+        self.file_io = open(filename, "wb")
+        self.file_io.close()
+
+    def enable_gps_dump(self, enabled=True):
+        self.flag_gps_dump = enabled
 
     def read_raw(self, timeout=None):
         if timeout is not None:
@@ -66,6 +79,11 @@ class GPS:
             return False
         else:
             try:
+                if self.filename is not None and self.flag_gps_dump:
+                    self.file_io = open(self.filename, "a")
+                    self.file_io.write(raw)
+                    self.file_io.close()
+
                 raw = raw.split(",")
                 if raw[0] != "$GNRMC":
                     return False

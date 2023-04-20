@@ -126,6 +126,9 @@ class GPSUpdaterThread(QThread):
         self.parent = parent
         self.gps = GPS(GPS_DEVICE, GPS_BR)
         self.gps_status = False
+        self.error_cnt = 0
+        self.filename = None
+        self.file_io = None
 
     def run(self) -> None:
         status = self.gps.manually_update()
@@ -133,12 +136,17 @@ class GPSUpdaterThread(QThread):
             if self.gps.loc_status:
                 self.parent.label_gpsStatus_2.setText("成功定位")
                 self.gps_status = True
+                self.error_cnt = 0
             else:
-                self.parent.label_gpsStatus_2.setText("正在搜星")
-                self.gps_status = False
+                self.error_cnt += 1
+                if self.error_cnt >= 15:
+                    self.parent.label_gpsStatus_2.setText("正在搜星")
+                    self.gps_status = False
         else:
-            self.parent.label_gpsStatus_2.setText("不可用")
-            self.gps_false = False
+            self.error_cnt += 1
+            if self.error_cnt >= 15:
+                self.parent.label_gpsStatus_2.setText("不可用")
+                self.gps_false = False
 
 
 class DataUpdaterThread(QThread):
