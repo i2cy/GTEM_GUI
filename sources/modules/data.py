@@ -13,7 +13,7 @@ import ctypes
 
 class PlotBuf:
 
-    def __init__(self, buf_length=25000 * 5, sample_rate=25000, freq=25):
+    def __init__(self, buf_length=25000 * 50, sample_rate=25000, freq=25):
         self.__data = DataBuf(buf_length)
         self.__time = TimeBuf(buf_length, sample_rate)
         self.__last_fetch_ts = time.time()
@@ -137,8 +137,12 @@ class TimeBuf(object):
             self.__index_in += batch_length
         else:
             self.__data[self.__index_in:] = timestamp[:left]
-            self.__index_in += batch_length - self.buf_length
-            self.__data[:self.__index_in] = timestamp[self.__index_in - 1:]
+            self.__index_in = batch_length - left
+            try:
+                self.__data[:self.__index_in] = timestamp[left:]
+            except Exception as err:
+                print(
+                    f"time err: index_in: {self.__index_in}, total_data: {batch_length}, data_left: {len(timestamp[left:])}, msg: {err}")
 
 
 class DataBuf(object):
@@ -250,5 +254,9 @@ class DataBuf(object):
             self.__index_in += batch_length
         else:
             self.__data[self.__index_in:] = data[:left]
-            self.__index_in += batch_length - self.buf_length
-            self.__data[:self.__index_in] = data[self.__index_in - 1:]
+            self.__index_in = batch_length - left
+            try:
+                self.__data[:self.__index_in] = data[left:]
+            except Exception as err:
+                print(
+                    f"data err: index_in: {self.__index_in}, total_data: {batch_length}, data_left: {len(data[left:])}, msg: {err}")

@@ -154,63 +154,84 @@ class DataUpdaterThread(QThread):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
+        self.ts_zero = 0.0
         self.timestamp = 0.0
         self.dt_i = 1 / int(self.parent.comboBox_sampleRate.currentText())
-        self.fifo_ch1: Queue = self.parent.fpga_com.mp_ch1_data_queue_x400
-        self.fifo_ch2: Queue = self.parent.fpga_com.mp_ch2_data_queue_x400
-        self.fifo_ch3: Queue = self.parent.fpga_com.mp_ch3_data_queue_x400
+        self.fifo_ch1: Queue = self.parent.fpga_com.mp_ch1_data_queue_x4
+        self.fifo_ch2: Queue = self.parent.fpga_com.mp_ch2_data_queue_x4
+        self.fifo_ch3: Queue = self.parent.fpga_com.mp_ch3_data_queue_x4
 
     def reset(self):
         self.dt_i = 1 / int(self.parent.comboBox_sampleRate.currentText())
         self.timestamp = 0.0
+        self.ts_zero = 0.0
 
     def run(self):
         self.parent.amp_ctl.set_LED(led3=not self.parent.amp_ctl.leds[2])
 
-        try:
-            data = self.fifo_ch1.get_nowait()
-            if len(data):
-                self.parent.buf_realTime_ch1.updateBatch(
-                    data,
-                    np.linspace(
-                        self.timestamp,
-                        self.timestamp + len(data) * self.dt_i, len(data),
-                        dtype=np.float32
-                    )
-                )
-        except Empty:
-            pass
-        try:
-            data = self.fifo_ch2.get_nowait()
-            if len(data):
-                self.parent.buf_realTime_ch2.updateBatch(
-                    data,
-                    np.linspace(
-                        self.timestamp,
-                        self.timestamp + len(data) * self.dt_i, len(data),
-                        dtype=np.float32
-                    )
-                )
-        except Empty:
-            pass
-        try:
-            data = self.fifo_ch3.get_nowait()
-            if len(data):
-                self.parent.buf_realTime_ch3.updateBatch(
-                    data,
-                    np.linspace(
-                        self.timestamp,
-                        self.timestamp + len(data) * self.dt_i, len(data),
-                        dtype=np.float32
-                    )
-                )
-        except Empty:
-            pass
+        # file clip
+        ts = time.time()
+        tp = ts - self.parent.record_start_ts - self.ts_zero
+        if tp > CLIP_TIME_SEC:
+            filename = self.parent.staticGenerateFilename()
+            abs_path = f"{MOUNT_PATH}/{filename}.bin"
+            self.parent.fpga_com.set_output_file(abs_path)
+            abs_path = f"{MOUNT_PATH}/{filename}_gps.txt"
+            self.parent.gps_updater.gps.set_gps_file(abs_path)
+            self.ts_zero = ts
 
-        try:
-            self.timestamp += len(data) * self.dt_i
-        except:
-            pass
+        for i in range(5):
+
+            success = 0
+
+            try:
+                data = self.fifo_ch1.get_nowait()
+                if len(data):
+                    self.parent.buf_realTime_ch1.updateBatch(
+                        data,
+                        np.linspace(
+                            self.timestamp,
+                            self.timestamp + len(data) * self.dt_i, len(data),
+                            dtype=np.float32
+                        )
+                    )
+                    success += 1
+            except Empty:
+                pass
+            try:
+                data = self.fifo_ch2.get_nowait()
+                if len(data):
+                    self.parent.buf_realTime_ch2.updateBatch(
+                        data,
+                        np.linspace(
+                            self.timestamp,
+                            self.timestamp + len(data) * self.dt_i, len(data),
+                            dtype=np.float32
+                        )
+                    )
+                    success += 1
+            except Empty:
+                pass
+            try:
+                data = self.fifo_ch3.get_nowait()
+                if len(data):
+                    self.parent.buf_realTime_ch3.updateBatch(
+                        data,
+                        np.linspace(
+                            self.timestamp,
+                            self.timestamp + len(data) * self.dt_i, len(data),
+                            dtype=np.float32
+                        )
+                    )
+                    success += 1
+            except Empty:
+                pass
+
+            try:
+                if success >= 3:
+                    self.timestamp += len(data) * self.dt_i
+            except:
+                pass
 
 
 class MainGraphUpdaterThread(QThread):
@@ -242,18 +263,22 @@ class MainGraphUpdaterThread(QThread):
             self.parent.rtPlot_allch2.setData(*self.last_rander_data2)
             self.parent.rtPlot_allch3.setData(*self.last_rander_data3)
 
-        self.parent.rtPlotWeight_all.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
-        self.parent.rtPlotWeight_all.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
-                                              padding=0)
-        self.parent.rtPlotWeight_ch1.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
-        self.parent.rtPlotWeight_ch1.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
-                                              padding=0)
-        self.parent.rtPlotWeight_ch2.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
-        self.parent.rtPlotWeight_ch2.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
-                                              padding=0)
-        self.parent.rtPlotWeight_ch3.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
-        self.parent.rtPlotWeight_ch3.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
-                                              padding=0)
+        try:
+            # self.parent.rtPlotWeight_all.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
+            self.parent.rtPlotWeight_all.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+                                                  padding=0)
+            # self.parent.rtPlotWeight_ch1.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
+            self.parent.rtPlotWeight_ch1.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+                                                  padding=0)
+            # self.parent.rtPlotWeight_ch2.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
+            self.parent.rtPlotWeight_ch2.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+                                                  padding=0)
+            # self.parent.rtPlotWeight_ch3.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1])
+            self.parent.rtPlotWeight_ch3.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+                                                  padding=0)
+
+        except Exception as err:
+            print(f"range err, {self.last_rander_range}")
 
         self.parent.amp_ctl.set_LED(led2=False)
 
@@ -298,10 +323,11 @@ class MainGraphUpdaterThread(QThread):
             self.last_rander_data3 = data
 
 
-            x_range = current_plot.getViewBox().viewRange()
-            y_range = x_range[1]
-            x_range = x_range[0]
-            x_range = [x_range[0] + dt, x_range[1] + dt]
+            # x_range = current_plot.getViewBox().viewRange()
+            # y_range = x_range[1]
+            # x_range = x_range[0]
+            time_view = 4 / int(self.parent.comboBox_radiateFreq.currentText())
+            x_range = [data[0][-1] - time_view, data[0][-1]]
 
         y_range = list(REAL_TIME_PLOT_YRANGES)
         if y_range[0] > data[0].min():
@@ -312,5 +338,5 @@ class MainGraphUpdaterThread(QThread):
 
         xmin = data[0][0]
         xmax = data[0][-1]
-        self.last_rander_limits = (xmin, xmax)
+        self.last_rander_limits = ((xmin, xmax), REAL_TIME_PLOT_YRANGES)
         self.last_rander_range = (x_range, y_range)

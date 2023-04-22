@@ -23,18 +23,13 @@ from mainWindow import Ui_MainWindow
 from modules.data import PlotBuf
 from modules.gtem import Gtem24File, Gtem24
 from modules.graphic import init_graph
-from modules.globals import REAL_TIME_PLOT_XRANGES, REAL_TIME_PLOT_YRANGES
-from modules.globals import REAL_TIME_PLOT_XTITLE, REAL_TIME_MAX_VIEW_TIME
-from modules.globals import MAX_BUFFER_TIME, REAL_TIME_LINE_COLOR, REAL_TIME_ALL_COLORS
-from modules.globals import REAL_TIME_LINE_WIDTH, SEC_FILED_YRANGE, SEC_FILED_XRANGE
+from modules.globals import *
 from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread, GPSUpdaterThread, DataUpdaterThread
 from modules.spi_dev import FPGACtl, FPGACom
 from modules.i2c import BandWidthCtl, AmpRateCtl
 
 TEST = False
-I2C_BUS = "/dev/i2c-2"
-SD_PATH = "/dev/mmcblk1p1"
-MOUNT_PATH = "/mnt"
+DECOY = True
 
 
 class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
@@ -391,7 +386,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.label_filenameHeader_2.setVisible(False)
 
         # FPGA communication
-        self.fpga_com = FPGACom()
+        self.fpga_com = FPGACom(to_file_only=DECOY)
         self.fpga_ctl = FPGACtl(I2C_BUS)
 
         self.fpga_com.start()
@@ -513,6 +508,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         # load filename
         filename = self.staticGenerateFilename()
         abs_path = f"{MOUNT_PATH}/{filename}.bin"
+        print("SPI DEV status before file open: {}".format(self.fpga_com.mp_status))
         self.fpga_com.set_output_file(abs_path)
 
         # start FPGA
@@ -808,12 +804,10 @@ def test(ui):
                 ti += dt_i
                 cnt += 1
                 try:
-                    ui.buf_realTime_ch1.updateOne(gt[cnt], ti)
+                    ui.buf_realTime_ch1.updateBatch(gt[cnt:cnt+4000], ti)
                 except:
                     cnt = 0
 
-                ui.buf_realTime_ch2.updateOne(np.sin(ti) * 10 ** 6, ti)
-                ui.buf_realTime_ch3.updateOne(np.cos(ti) * 10 ** 6, ti)
             delay = dt - time.time() + t1_0
             if delay < 0:
                 print("warning: can not keep up, delayed behind for {:.3f}ms".format(-delay * 1000))

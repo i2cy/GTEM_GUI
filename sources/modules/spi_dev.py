@@ -27,19 +27,20 @@ DATA_FRAME_SIZE = 3 * 4
 
 class FPGACom:
 
-    def __init__(self, to_file_only: bool = False, debug=False):
+    def __init__(self, to_file_only: bool = False, debug=True):
 
         self.to_file_only = to_file_only
         self.mp_status = Manager().dict({"live": True,
                                          "running": False,
-                                         "file_lock": True,
+                                         "file_lock": False,
                                          "filename": "",
-                                         "debug": debug})
+                                         "debug": debug,
+                                         "swapping_file": False})
 
         self.mp_raw_data_queue = Queue(200_000_000 // DATA_BATCH)
-        self.mp_ch1_data_queue_x400 = Queue(200_000_000 // DATA_BATCH // 400)
-        self.mp_ch2_data_queue_x400 = Queue(200_000_000 // DATA_BATCH // 400)
-        self.mp_ch3_data_queue_x400 = Queue(200_000_000 // DATA_BATCH // 400)
+        self.mp_ch1_data_queue_x4 = Queue(200_000_000 // DATA_BATCH // 4)
+        self.mp_ch2_data_queue_x4 = Queue(200_000_000 // DATA_BATCH // 4)
+        self.mp_ch3_data_queue_x4 = Queue(200_000_000 // DATA_BATCH // 4)
 
         self.spi_dev = spidev.SpiDev()
         self.spi_dev.open(*SPI_DEV)
@@ -54,6 +55,12 @@ class FPGACom:
 
     def set_output_file(self, filename):
         self.mp_status["filename"] = filename
+        if self.mp_status["file_lock"]:
+            print("swapping file")
+            self.mp_status["swapping_file"] = True
+            while self.mp_status["swapping_file"]:
+                time.sleep(0.001)
+            print("swapping file completed")
 
     def proc_spi_receiver(self):
         if self.mp_status["debug"]:
@@ -82,14 +89,15 @@ class FPGACom:
         if self.mp_status["debug"]:
             print("proc_data_process started")
 
+        t_debug = time.time()
+
         while self.mp_status["live"]:
             if not self.mp_status["running"]:  # 待机状态
                 if not file_closed:
                     file_io.close()
                     file_closed = True
                     self.mp_status["file_lock"] = False
-                    if self.mp_status["debug"]:
-                        print("proc_data_process file closed")
+                    print("proc_data_process file closed")
                 time.sleep(0.000_001)
                 continue
 
@@ -97,8 +105,7 @@ class FPGACom:
                 file_io = open(self.mp_status["filename"], "wb")
                 file_closed = False
                 self.mp_status["file_lock"] = True
-                if self.mp_status["debug"]:
-                    print("proc_data_process file opened")
+                print("proc_data_process file opened")
 
             try:
                 frame = self.mp_raw_data_queue.get(timeout=0.5)
@@ -107,15 +114,20 @@ class FPGACom:
 
             byte_array = bytes(frame)
 
+            if self.mp_status["swapping_file"]:
+                file_io.close()
+                file_io = open(self.mp_status["filename"], "wb")
+                self.mp_status["swapping_file"] = False
+
             file_io.write(byte_array)  # write to file in sub process
 
             dt = np.dtype(np.int32)
-            dt.newbyteorder("<")
+            dt.newbyteorder(">")
 
             frame = np.frombuffer(byte_array, dtype=dt)
 
             if not self.to_file_only:
-                if cnt < 400:
+                if cnt < 4:
                     ch1_batch.extend(frame[0::3].tolist())
                     ch2_batch.extend(frame[1::3].tolist())
                     ch3_batch.extend(frame[2::3].tolist())
@@ -124,13 +136,16 @@ class FPGACom:
                     ch1_batch.extend(frame[0::3].tolist())
                     ch2_batch.extend(frame[1::3].tolist())
                     ch3_batch.extend(frame[2::3].tolist())
-                    self.mp_ch1_data_queue_x400.put(ch1_batch)
-                    self.mp_ch2_data_queue_x400.put(ch2_batch)
-                    self.mp_ch3_data_queue_x400.put(ch3_batch)
+                    self.mp_ch1_data_queue_x4.put(ch1_batch)
+                    self.mp_ch2_data_queue_x4.put(ch2_batch)
+                    self.mp_ch3_data_queue_x4.put(ch3_batch)
                     ch1_batch.clear()
                     ch2_batch.clear()
                     ch3_batch.clear()
                     cnt = 0
+
+                    print(f"put X4 queue once in {time.time() - t_debug:.2f}s")
+                    t_debug = time.time()
 
         if self.mp_status["debug"]:
             print("proc_data_process stopped")
@@ -166,13 +181,13 @@ class FPGACom:
 def fpga_demo():
     test_file = "test.bin"
 
-    # test_data_ch1 = b"\xa1\xa5\x5a\xa5"
-    # test_data_ch2 = b"\xa2\xa5\x5a\xa5"
-    # test_data_ch3 = b"\xa4\xa5\x5a\xa5"
+    test_data_ch1 = b"\xa1\xa5\x5a\xa5"
+    test_data_ch2 = b"\xa2\xa5\x5a\xa5"
+    test_data_ch3 = b"\xa4\xa5\x5a\xa5"
 
-    test_data_ch1 = b"\xa1\xa2\xa3\xa4"
-    test_data_ch2 = b"\xa5\xa6\xa7\xa8"
-    test_data_ch3 = b"\xa9\xaa\xab\xac"
+    # test_data_ch1 = b"\xa1\xa2\xa3\xa4"
+    # test_data_ch2 = b"\xa5\xa6\xa7\xa8"
+    # test_data_ch3 = b"\xa9\xaa\xab\xac"
 
     ctl = FPGACtl("/dev/i2c-2")
     com = FPGACom(to_file_only=True)
@@ -205,7 +220,7 @@ def fpga_demo():
             print("    received data length: {}".format(len(data)))
             print("    frames: {}".format(len(data) / DATA_FRAME_SIZE))
             dt = np.dtype(np.int32)
-            dt.newbyteorder("<")
+            dt.newbyteorder(">")
             first4 = np.frombuffer(data[0:4 * DATA_FRAME_SIZE], dtype=dt)
             sliced = []
             for index, ele in enumerate(data[::4]):
@@ -233,12 +248,15 @@ def fpga_demo():
                 print(" = Incorrect data example in CH1: {}".format(ele.hex().upper()))
                 break
 
-        print(" = CH1 data integrity: {:.2f}% correct of {} samples in total".format(100 * (correct_ch1 / (len(sliced) / 3)),
-                                                                                     len(sliced) / 3))
-        print(" = CH2 data integrity: {:.2f}% correct of {} samples in total".format(100 * (correct_ch2 / (len(sliced) / 3)),
-                                                                                     len(sliced) / 3))
-        print(" = CH3 data integrity: {:.2f}% correct of {} samples in total".format(100 * (correct_ch3 / (len(sliced) / 3)),
-                                                                                     len(sliced) / 3))
+        print(" = CH1 data integrity: {:.2f}% correct of {} samples in total".format(
+            100 * (correct_ch1 / (len(sliced) / 3)),
+            len(sliced) / 3))
+        print(" = CH2 data integrity: {:.2f}% correct of {} samples in total".format(
+            100 * (correct_ch2 / (len(sliced) / 3)),
+            len(sliced) / 3))
+        print(" = CH3 data integrity: {:.2f}% correct of {} samples in total".format(
+            100 * (correct_ch3 / (len(sliced) / 3)),
+            len(sliced) / 3))
 
         time.sleep(0.2)
         # os.remove(test_file)
