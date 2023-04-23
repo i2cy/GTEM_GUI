@@ -271,6 +271,17 @@ class FPGACtl:
         # 0-16
         self.chn_amp_rate_level = [0, 0, 0]
 
+        self.__amp_rate_sheet = {
+            "1": 0b0011,
+            "2": 0b0100,
+            "4": 0b0101,
+            "8": 0b0110,
+            "16": 0b0111,
+            "32": 0b1000,
+            "64": 0b1001,
+            "128": 0b1010
+        }
+
         self.debug = debug
 
     def __send_command(self):
@@ -321,9 +332,9 @@ class FPGACtl:
         :param ch3: bool
         :return:
         """
-        self.chn_is_open[0] = ch1
+        self.chn_is_open[2] = ch1
         self.chn_is_open[1] = ch2
-        self.chn_is_open[2] = ch3
+        self.chn_is_open[0] = ch3
 
         # if self.debug:
         #     self.__send_command()
@@ -341,17 +352,17 @@ class FPGACtl:
         # if self.debug:
         #     self.__send_command()
 
-    def set_amp_rate_of_channels(self, ch1_amp, ch2_amp, ch3_amp):
+    def set_amp_rate_of_channels(self, ch1_amp: str, ch2_amp: str, ch3_amp: str):
         """
-        set the amplification rate of each channel, level from 0x00 to 0x0f
-        :param ch1_amp: int
-        :param ch2_amp: int
-        :param ch3_amp: int
+        set the amplification rate of each channel, transformed by transforming dict
+        :param ch1_amp: str
+        :param ch2_amp: str
+        :param ch3_amp: str
         :return:
         """
-        self.chn_amp_rate_level[0] = ch1_amp
-        self.chn_amp_rate_level[1] = ch2_amp
-        self.chn_amp_rate_level[2] = ch3_amp
+        self.chn_amp_rate_level[0] = self.__amp_rate_sheet[ch1_amp]
+        self.chn_amp_rate_level[1] = self.__amp_rate_sheet[ch2_amp]
+        self.chn_amp_rate_level[2] = self.__amp_rate_sheet[ch3_amp]
 
         # if self.debug:
         #     self.__send_command()

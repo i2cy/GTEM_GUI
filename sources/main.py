@@ -500,10 +500,13 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtPlotWeight_ch3.setXRange(*REAL_TIME_PLOT_XRANGES)
 
         # load FPGA configuration
+        self.fpga_ctl.enable_channels(self.comboBox_ch1BandWidth.currentText() != '闭合',
+                                      self.comboBox_ch2BandWidth.currentText() != '闭合',
+                                      self.comboBox_ch3BandWidth.currentText() != '闭合')
         self.fpga_ctl.set_sample_rate_level(self.comboBox_sampleRate.currentIndex())
-        self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentIndex(),
-                                               self.comboBox_ch2Amp.currentIndex(),
-                                               self.comboBox_ch3Amp.currentIndex())
+        self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentText(),
+                                               self.comboBox_ch2Amp.currentText(),
+                                               self.comboBox_ch3Amp.currentText())
 
         # load filename
         filename = self.staticGenerateFilename()
@@ -520,7 +523,9 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             self.comboBox_ch1Amp.currentText(),
             self.comboBox_ch2Amp.currentText(),
             self.comboBox_ch3Amp.currentText(),
+            update=False
         )
+        self.amp_ctl.set_LED(False, False, False, False, update=True)
 
         # set bandwidth
         self.bandwidth_ctl.set_bandwidth(
@@ -804,7 +809,7 @@ def test(ui):
                 ti += dt_i
                 cnt += 1
                 try:
-                    ui.buf_realTime_ch1.updateBatch(gt[cnt:cnt+4000], ti)
+                    ui.buf_realTime_ch1.updateBatch(gt[cnt:cnt + 4000], ti)
                 except:
                     cnt = 0
 
