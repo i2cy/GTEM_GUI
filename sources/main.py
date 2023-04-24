@@ -29,7 +29,7 @@ from modules.spi_dev import FPGACtl, FPGACom
 from modules.i2c import BandWidthCtl, AmpRateCtl
 
 TEST = False
-DECOY = True
+DECOY = False
 
 
 class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):

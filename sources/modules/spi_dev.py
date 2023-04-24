@@ -112,6 +112,9 @@ class FPGACom:
             except Empty:
                 continue
 
+            if not len(frame):
+                continue
+
             byte_array = bytes(frame)
 
             if self.mp_status["swapping_file"]:
@@ -126,6 +129,8 @@ class FPGACom:
 
             frame = np.frombuffer(byte_array, dtype=dt)
 
+            frame = frame & 0x00ffffff
+
             if not self.to_file_only:
                 if cnt < 4:
                     ch1_batch.extend(frame[0::3].tolist())
@@ -139,13 +144,17 @@ class FPGACom:
                     self.mp_ch1_data_queue_x4.put(ch1_batch)
                     self.mp_ch2_data_queue_x4.put(ch2_batch)
                     self.mp_ch3_data_queue_x4.put(ch3_batch)
+
+                    # print(f"put X4 queue once in {time.time() - t_debug:.2f}s,"
+                    #       f"\n   ch1 {len(ch1_batch)} ch2 {len(ch2_batch)} ch3 {len(ch3_batch)}")
+                    t_debug = time.time()
+
+                    time.sleep(0.002)
+
                     ch1_batch.clear()
                     ch2_batch.clear()
                     ch3_batch.clear()
                     cnt = 0
-
-                    print(f"put X4 queue once in {time.time() - t_debug:.2f}s")
-                    t_debug = time.time()
 
         if self.mp_status["debug"]:
             print("proc_data_process stopped")
@@ -200,10 +209,10 @@ def fpga_demo():
     print("starting communication receiver")
     com.start()
 
-    for level in range(3, 13):
+    for level in range(4, 13):
         print("testing sample rate level:", level2str[level])
         ctl.set_sample_rate_level(level)
-        ctl.set_amp_rate_of_channels(0x0f, 0x0f, 0x0f)
+        ctl.set_amp_rate_of_channels('1', '1', '1')
         time.sleep(0.5)
         print(" + starting FPGA transmission for 5 seconds")
         com.open()
