@@ -48,6 +48,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         # self.toolButton_historyFile.clicked.connect(self.onButtonHistoryClicked)
 
         # bottom bar components
+        self.toolButton_startRecording.setEnabled(False)
         self.toolButton_startRecording.clicked.connect(self.onButtonStartRecordClicked)
         self.toolButton_settings.clicked.connect(self.onButtonSettingClicked)
         self.toolButton_mainMenu.clicked.connect(self.onButtonReturnToMenuClicked)
@@ -627,8 +628,12 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
             self.progressBar.setEnabled(True)
             self.progressBar.setValue(int(value))
+            self.toolButton_startRecording.setEnabled(True)
         else:
+            if self.flag_recording:
+                self.actionStopRecording()
             self.progressBar.setEnabled(False)
+            self.toolButton_startRecording.setEnabled(False)
 
         # update GPS
         if self.gps_updater.gps_status:

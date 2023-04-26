@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'E:\BaiduSyncdisk\DateBasedProjects\2022\9.3 地面接收机软件\sources\mainWindow.ui'
+# Form implementation generated from reading ui file 'D:\BaiduSyncdisk\DateBasedProjects\2022\9.3 地面接收机软件\sources\mainWindow.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.7
 #
@@ -14,8 +14,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1088, 649)
+        MainWindow.resize(1633, 975)
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        MainWindow.setFont(font)
         MainWindow.setAutoFillBackground(False)
+        MainWindow.setIconSize(QtCore.QSize(64, 64))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -104,7 +108,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setAlignment(QtCore.Qt.AlignCenter)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1040, 556))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1557, 831))
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Ignored)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -344,6 +348,7 @@ class Ui_MainWindow(object):
         font.setPointSize(18)
         self.comboBox_ch3Amp.setFont(font)
         self.comboBox_ch3Amp.setObjectName("comboBox_ch3Amp")
+        self.comboBox_ch3Amp.addItem("")
         self.comboBox_ch3Amp.addItem("")
         self.comboBox_ch3Amp.addItem("")
         self.comboBox_ch3Amp.addItem("")
@@ -936,8 +941,11 @@ class Ui_MainWindow(object):
         self.retranslateUi(MainWindow)
         self.stackedWidget_menu.setCurrentIndex(0)
         self.stackedWidget_mainGraph.setCurrentIndex(0)
-        self.comboBox_sampleRate.setCurrentIndex(7)
+        self.comboBox_sampleRate.setCurrentIndex(1)
         self.tabWidget.setCurrentIndex(0)
+        self.comboBox_ch1BandWidth.setCurrentIndex(2)
+        self.comboBox_ch2BandWidth.setCurrentIndex(2)
+        self.comboBox_ch3BandWidth.setCurrentIndex(2)
         self.tabWidget_channelGraph.setCurrentIndex(0)
         self.stackedWidget_allGraph.setCurrentIndex(0)
         self.stackedWidget_ch1Graph.setCurrentIndex(0)
@@ -958,7 +966,7 @@ class Ui_MainWindow(object):
         self.label_3.setText(_translate("MainWindow", "GTEM接收机软件"))
         self.label_26.setText(_translate("MainWindow", "成都理工大学 GTEM"))
         self.label_versionInfo.setText(_translate("MainWindow", "v0.7(beta)"))
-        self.comboBox_sampleRate.setCurrentText(_translate("MainWindow", "25000"))
+        self.comboBox_sampleRate.setCurrentText(_translate("MainWindow", "1000"))
         self.comboBox_sampleRate.setItemText(0, _translate("MainWindow", "500"))
         self.comboBox_sampleRate.setItemText(1, _translate("MainWindow", "1000"))
         self.comboBox_sampleRate.setItemText(2, _translate("MainWindow", "2000"))
@@ -1017,10 +1025,11 @@ class Ui_MainWindow(object):
         self.comboBox_ch3Amp.setItemText(0, _translate("MainWindow", "1"))
         self.comboBox_ch3Amp.setItemText(1, _translate("MainWindow", "2"))
         self.comboBox_ch3Amp.setItemText(2, _translate("MainWindow", "4"))
-        self.comboBox_ch3Amp.setItemText(3, _translate("MainWindow", "16"))
-        self.comboBox_ch3Amp.setItemText(4, _translate("MainWindow", "32"))
-        self.comboBox_ch3Amp.setItemText(5, _translate("MainWindow", "64"))
-        self.comboBox_ch3Amp.setItemText(6, _translate("MainWindow", "128"))
+        self.comboBox_ch3Amp.setItemText(3, _translate("MainWindow", "8"))
+        self.comboBox_ch3Amp.setItemText(4, _translate("MainWindow", "16"))
+        self.comboBox_ch3Amp.setItemText(5, _translate("MainWindow", "32"))
+        self.comboBox_ch3Amp.setItemText(6, _translate("MainWindow", "64"))
+        self.comboBox_ch3Amp.setItemText(7, _translate("MainWindow", "128"))
         self.label_27.setText(_translate("MainWindow", "通道带宽："))
         self.comboBox_ch3BandWidth.setItemText(0, _translate("MainWindow", "闭合"))
         self.comboBox_ch3BandWidth.setItemText(1, _translate("MainWindow", "10K"))

@@ -124,12 +124,22 @@ class FPGACom:
 
             file_io.write(byte_array)  # write to file in sub process
 
-            dt = np.dtype(np.int32)
-            dt.newbyteorder(">")
+            dt = np.dtype(np.uint32)
+            dt.newbyteorder("<")
 
             frame = np.frombuffer(byte_array, dtype=dt)
 
-            frame = frame & 0x00ffffff
+            # print("1", hex(frame[0]))
+
+            frame = np.array([int().from_bytes(
+                int(ele).to_bytes(4, "little", signed=False)[1:4],
+                "big", signed=True
+            ) for ele in frame], dtype=np.int32)
+            # print("2", hex(frame[0]))
+
+            frame = (frame / 8_388_607) * 4096
+
+            # print("3", np.max(frame), "mv")
 
             if not self.to_file_only:
                 if cnt < 4:
@@ -229,7 +239,7 @@ def fpga_demo():
             print("    received data length: {}".format(len(data)))
             print("    frames: {}".format(len(data) / DATA_FRAME_SIZE))
             dt = np.dtype(np.int32)
-            dt.newbyteorder(">")
+            dt.newbyteorder("<")
             first4 = np.frombuffer(data[0:4 * DATA_FRAME_SIZE], dtype=dt)
             sliced = []
             for index, ele in enumerate(data[::4]):

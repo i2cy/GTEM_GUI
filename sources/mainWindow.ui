@@ -6,15 +6,26 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1088</width>
-    <height>649</height>
+    <width>1633</width>
+    <height>975</height>
    </rect>
+  </property>
+  <property name="font">
+   <font>
+    <pointsize>10</pointsize>
+   </font>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <property name="autoFillBackground">
    <bool>false</bool>
+  </property>
+  <property name="iconSize">
+   <size>
+    <width>64</width>
+    <height>64</height>
+   </size>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
@@ -223,8 +234,8 @@
                   <rect>
                    <x>0</x>
                    <y>0</y>
-                   <width>1040</width>
-                   <height>556</height>
+                   <width>1557</width>
+                   <height>831</height>
                   </rect>
                  </property>
                  <property name="sizePolicy">
@@ -263,10 +274,10 @@
                      </font>
                     </property>
                     <property name="currentText">
-                     <string>25000</string>
+                     <string>1000</string>
                     </property>
                     <property name="currentIndex">
-                     <number>7</number>
+                     <number>1</number>
                     </property>
                     <item>
                      <property name="text">
@@ -630,6 +641,9 @@
                           <pointsize>18</pointsize>
                          </font>
                         </property>
+                        <property name="currentIndex">
+                         <number>2</number>
+                        </property>
                         <item>
                          <property name="text">
                           <string>闭合</string>
@@ -753,6 +767,9 @@
                           <pointsize>18</pointsize>
                          </font>
                         </property>
+                        <property name="currentIndex">
+                         <number>2</number>
+                        </property>
                         <item>
                          <property name="text">
                           <string>闭合</string>
@@ -832,6 +849,11 @@
                         </item>
                         <item>
                          <property name="text">
+                          <string>8</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
                           <string>16</string>
                          </property>
                         </item>
@@ -865,6 +887,9 @@
                          <font>
                           <pointsize>18</pointsize>
                          </font>
+                        </property>
+                        <property name="currentIndex">
+                         <number>2</number>
                         </property>
                         <item>
                          <property name="text">
