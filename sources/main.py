@@ -77,7 +77,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
         # sec field graph init
         self.sfPlotWeight_all = init_graph(self, self.gridLayout_allGraph,
-                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xtitle=SF_PLOT_XTITLE,
                                            xrange=SEC_FILED_XRANGE,
                                            yrange=SEC_FILED_YRANGE,
                                            disable_mouse=True,
@@ -85,7 +85,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                                            log_mode=True)
 
         self.sfPlotWeight_ch1 = init_graph(self, self.gridLayout_ch1Graph,
-                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xtitle=SF_PLOT_XTITLE,
                                            xrange=SEC_FILED_XRANGE,
                                            yrange=SEC_FILED_YRANGE,
                                            disable_mouse=True,
@@ -93,7 +93,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                                            log_mode=True)
 
         self.sfPlotWeight_ch2 = init_graph(self, self.gridLayout_ch2Graph,
-                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xtitle=SF_PLOT_XTITLE,
                                            xrange=SEC_FILED_XRANGE,
                                            yrange=SEC_FILED_YRANGE,
                                            disable_mouse=True,
@@ -101,7 +101,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                                            log_mode=True)
 
         self.sfPlotWeight_ch3 = init_graph(self, self.gridLayout_ch3Graph,
-                                           xtitle=REAL_TIME_PLOT_XTITLE,
+                                           xtitle=SF_PLOT_XTITLE,
                                            xrange=SEC_FILED_XRANGE,
                                            yrange=SEC_FILED_YRANGE,
                                            disable_mouse=True,

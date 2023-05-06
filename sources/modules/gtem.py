@@ -15,7 +15,7 @@ from multiprocessing import Manager, Process
 class Gtem24:
 
     def __init__(self, sample_rate=25000, emit_freq=25, gain=0.25,
-                 peak_point=127, data=None):
+                 peak_point=0, data=None):
         self.sample_rate = sample_rate
         self.emit_freq = emit_freq
         self.gain = gain
@@ -28,7 +28,8 @@ class Gtem24:
 
         self.__data = data
 
-        self.mul_result_dict = Manager().dict()
+        self.mul_result_dict = Manager().dict({"x": ([0,1,2], [0,1,2]),
+                                               "sin_noise_sum": None})
 
     def updateData(self, data: np.ndarray):
         self.__data = data
@@ -55,6 +56,7 @@ class Gtem24:
                             data_raw[x + peak_point - 1] -= deri / 2
 
                 peak_point += int(self.__k_T)
+                print(peak_point)
 
         peak_point = self.peak_point
         flag = False
