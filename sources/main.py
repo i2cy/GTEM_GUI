@@ -25,8 +25,8 @@ from modules.gtem import Gtem24File, Gtem24
 from modules.graphic import init_graph
 from modules.globals import *
 from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread, GPSUpdaterThread, DataUpdaterThread
-from modules.spi_dev import FPGACtl, FPGACom
-from modules.i2c import BandWidthCtl, AmpRateCtl
+# from modules.spi_dev import FPGACtl, FPGACom
+# from modules.i2c import BandWidthCtl, AmpRateCtl
 
 TEST = False
 DECOY = False
@@ -387,10 +387,10 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.label_filenameHeader_2.setVisible(False)
 
         # FPGA communication
-        self.fpga_com = FPGACom(to_file_only=DECOY)
-        self.fpga_ctl = FPGACtl(I2C_BUS)
+        self.fpga_com = None
+        self.fpga_ctl = None
 
-        self.fpga_com.start()
+        # self.fpga_com.start()
 
         # GPS communication
         self.gps_error_count = 0
@@ -408,11 +408,11 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.data_Ticker.timeout.connect(self.doUpdateData)
 
         # controls of serial to parallel chips
-        self.bandwidth_ctl = BandWidthCtl(I2C_BUS, 0x20, 0x21, 0x23)
-        self.amp_ctl = AmpRateCtl(I2C_BUS, 0x74)
+        self.bandwidth_ctl = None
+        self.amp_ctl = None
 
         # initialized signal
-        self.amp_ctl.set_LED(True, True, True, True)
+        # self.amp_ctl.set_LED(True, True, True, True)
 
         # timer
         self.record_start_ts = 0
@@ -501,39 +501,39 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtPlotWeight_ch3.setXRange(*REAL_TIME_PLOT_XRANGES)
 
         # load FPGA configuration
-        self.fpga_ctl.enable_channels(self.comboBox_ch1BandWidth.currentText() != '闭合',
-                                      self.comboBox_ch2BandWidth.currentText() != '闭合',
-                                      self.comboBox_ch3BandWidth.currentText() != '闭合')
-        self.fpga_ctl.set_sample_rate_level(self.comboBox_sampleRate.currentIndex())
-        self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentText(),
-                                               self.comboBox_ch2Amp.currentText(),
-                                               self.comboBox_ch3Amp.currentText())
+        # self.fpga_ctl.enable_channels(self.comboBox_ch1BandWidth.currentText() != '闭合',
+        #                               self.comboBox_ch2BandWidth.currentText() != '闭合',
+        #                               self.comboBox_ch3BandWidth.currentText() != '闭合')
+        # self.fpga_ctl.set_sample_rate_level(self.comboBox_sampleRate.currentIndex())
+        # self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentText(),
+        #                                        self.comboBox_ch2Amp.currentText(),
+        #                                        self.comboBox_ch3Amp.currentText())
 
         # load filename
         filename = self.staticGenerateFilename()
         abs_path = f"{MOUNT_PATH}/{filename}.bin"
-        print("SPI DEV status before file open: {}".format(self.fpga_com.mp_status))
-        self.fpga_com.set_output_file(abs_path)
+        # print("SPI DEV status before file open: {}".format(self.fpga_com.mp_status))
+        # self.fpga_com.set_output_file(abs_path)
 
         # start FPGA
-        self.fpga_com.open()
-        self.fpga_ctl.start_FPGA()
+        # self.fpga_com.open()
+        # self.fpga_ctl.start_FPGA()
 
         # set amp rate
-        self.amp_ctl.set_amp_rate(
-            self.comboBox_ch1Amp.currentText(),
-            self.comboBox_ch2Amp.currentText(),
-            self.comboBox_ch3Amp.currentText(),
-            update=False
-        )
-        self.amp_ctl.set_LED(False, False, False, False, update=True)
+        # self.amp_ctl.set_amp_rate(
+        #     self.comboBox_ch1Amp.currentText(),
+        #     self.comboBox_ch2Amp.currentText(),
+        #     self.comboBox_ch3Amp.currentText(),
+        #     update=False
+        # )
+        # self.amp_ctl.set_LED(False, False, False, False, update=True)
 
         # set bandwidth
-        self.bandwidth_ctl.set_bandwidth(
-            self.comboBox_ch1BandWidth.currentText(),
-            self.comboBox_ch2BandWidth.currentText(),
-            self.comboBox_ch3BandWidth.currentText(),
-        )
+        # self.bandwidth_ctl.set_bandwidth(
+        #     self.comboBox_ch1BandWidth.currentText(),
+        #     self.comboBox_ch2BandWidth.currentText(),
+        #     self.comboBox_ch3BandWidth.currentText(),
+        # )
 
         # update filename display
         self.label_titleFilenameHeader.setVisible(True)
@@ -558,8 +558,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.flag_recording = False
 
         # stop FPGA
-        self.fpga_com.close()
-        self.fpga_ctl.stop_FPGA()
+        # self.fpga_com.close()
+        # self.fpga_ctl.stop_FPGA()
 
         # stop data update
         self.data_Ticker.stop()
@@ -598,60 +598,61 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.gps_updater.start()
 
         # detect SD card
-        def decode_df(msg: str) -> float:
-            msg = msg.split(" ")
-            while "" in msg:
-                msg.remove("")
-            total = int(msg[1])
-            free = int(msg[3])
-            return free * 100 / total
-
-        if os.path.exists(SD_PATH):
-            p = os.popen("df")
-            data = p.readlines()
-            p.close()
-            data = data[1:]
-            value = -1
-            for ele in data:
-                if SD_PATH in ele:
-                    value = decode_df(ele)
-
-            if value == -1:
-                os.system(f"sudo mount {SD_PATH} {MOUNT_PATH}")
-                p = os.popen("df")
-                data = p.readlines()
-                p.close()
-                value = -1
-                for ele in data:
-                    if SD_PATH in ele:
-                        value = decode_df(ele)
-
-            self.progressBar.setEnabled(True)
-            self.progressBar.setValue(int(value))
-            self.toolButton_startRecording.setEnabled(True)
-        else:
-            if self.flag_recording:
-                self.actionStopRecording()
-            self.progressBar.setEnabled(False)
-            self.toolButton_startRecording.setEnabled(False)
-
-        # update GPS
-        if self.gps_updater.gps_status:
-            self.toolButton_startRecording.setEnabled(True)
-            self.gps_error_count = 0
-        else:
-            if self.gps_error_count > 3:
-                if self.flag_recording:
-                    self.actionStopRecording()
-                self.toolButton_startRecording.setEnabled(False)
-            else:
-                self.gps_error_count += 1
-
-        # update timer
-        if self.flag_recording:
-            ta = time.localtime(time.time() - self.record_start_ts)
-            time_str = time.strftime("%H:%M:%S", ta)
-            self.label_recordedTime_2.setText(time_str)
+        # def decode_df(msg: str) -> float:
+        #     msg = msg.split(" ")
+        #     while "" in msg:
+        #         msg.remove("")
+        #     total = int(msg[1])
+        #     free = int(msg[3])
+        #     return free * 100 / total
+        #
+        # if os.path.exists(SD_PATH):
+        #     p = os.popen("df")
+        #     data = p.readlines()
+        #     p.close()
+        #     data = data[1:]
+        #     value = -1
+        #     for ele in data:
+        #         if SD_PATH in ele:
+        #             value = decode_df(ele)
+        #
+        #     if value == -1:
+        #         os.system(f"sudo mount {SD_PATH} {MOUNT_PATH}")
+        #         p = os.popen("df")
+        #         data = p.readlines()
+        #         p.close()
+        #         value = -1
+        #         for ele in data:
+        #             if SD_PATH in ele:
+        #                 value = decode_df(ele)
+        #
+        #     self.progressBar.setEnabled(True)
+        #     self.progressBar.setValue(int(value))
+        #     self.toolButton_startRecording.setEnabled(True)
+        # else:
+        #     if self.flag_recording:
+        #         self.actionStopRecording()
+        #     self.progressBar.setEnabled(False)
+        #     self.toolButton_startRecording.setEnabled(False)
+        #
+        # # update GPS
+        # if self.gps_updater.gps_status:
+        #     self.toolButton_startRecording.setEnabled(True)
+        #     self.gps_error_count = 0
+        # else:
+        #     if self.gps_error_count > 3:
+        #         if self.flag_recording:
+        #             self.actionStopRecording()
+        #         self.toolButton_startRecording.setEnabled(False)
+        #     else:
+        #         self.gps_error_count += 1
+        #
+        # # update timer
+        # if self.flag_recording:
+        #     ta = time.localtime(time.time() - self.record_start_ts)
+        #     time_str = time.strftime("%H:%M:%S", ta)
+        #     self.label_recordedTime_2.setText(time_str)
+        self.toolButton_startRecording.setEnabled(True)
 
     def doUpdateFilenameHeader(self, value):
         self.label_filenameHeader_2.setVisible(True)
@@ -686,7 +687,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
     def doUpdateRealTimeGraph(self):
 
         # blink LED
-        self.amp_ctl.set_LED(not self.amp_ctl.leds[0])
+        # self.amp_ctl.set_LED(not self.amp_ctl.leds[0])
 
         if self.stackedWidget_topBar.currentIndex() != 0 or self.real_time_graph_updater.isRunning():
             return
@@ -842,7 +843,7 @@ if __name__ == '__main__':
     extco = app.exec_()
     live = False
 
-    ui.fpga_com.kill()
+    # ui.fpga_com.kill()
 
     # if TEST:
     #     t.join()
