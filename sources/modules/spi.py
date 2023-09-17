@@ -15,9 +15,9 @@ from queue import Empty
 from multiprocessing import Process, Queue, Manager
 
 if __name__ == "__main__":
-    from i2c import FPGACtl, FPGAStat
+    from i2c import FPGACtl, FPGAStat, FPGAStatusStruct
 else:
-    from .i2c import FPGACtl, FPGAStat
+    from .i2c import FPGACtl, FPGAStat, FPGAStatusStruct
 
 
 def __test_unit_generate_frame(num):
@@ -67,7 +67,13 @@ class FPGACom:
                                          "filename": "",
                                          "debug": debug,
                                          "swapping_file": False,
-                                         "batch_size": 200_000})
+                                         "batch_size": 200_000,
+                                         "status": {
+                                             "sdram_init_done": False,
+                                             "spi_data_ready": False,
+                                             "spi_rd_error": False,
+                                             "sdram_overlap": False
+                                         }})
 
         self.mp_raw_data_queue = Queue(200_000_000)
         self.mp_ch1_data_queue_x4 = Queue(200_000_000 // 4)
@@ -107,7 +113,7 @@ class FPGACom:
 
             while self.mp_status["live"]:
                 status = fpga_stat.read_status()
-                self.mp_status['spi_ready'] = status.spi_data_ready
+                self.mp_status['status'] = status.dict()
                 if status.spi_data_ready:
                     break
                 else:
@@ -214,6 +220,11 @@ class FPGACom:
 
         if self.mp_status["debug"]:
             print("proc_data_process stopped")
+
+    def get_status(self) -> FPGAStatusStruct:
+        ret = FPGAStatusStruct.parse_obj(self.mp_status['status'])
+
+        return ret
 
     def start(self):
         self.mp_status["live"] = True  # start signal

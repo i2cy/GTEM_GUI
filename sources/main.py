@@ -25,7 +25,7 @@ from modules.gtem import Gtem24File, Gtem24
 from modules.graphic import init_graph
 from modules.globals import *
 from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread, GPSUpdaterThread, DataUpdaterThread
-from modules.spi_dev import FPGACtl, FPGACom
+from modules.spi import FPGACtl, FPGAStat, FPGACom
 from modules.i2c import BandWidthCtl, AmpRateCtl
 
 TEST = False
@@ -636,11 +636,12 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             self.toolButton_startRecording.setEnabled(False)
 
         # update GPS
-        if self.gps_updater.gps_status:
+        fpga_status = self.fpga_com.get_status()
+        if self.gps_updater.gps_status and fpga_status.sdram_init_done:
             self.toolButton_startRecording.setEnabled(True)
             self.gps_error_count = 0
         else:
-            if self.gps_error_count > 3:
+            if self.gps_error_count > 3 or not fpga_status.sdram_init_done:
                 if self.flag_recording:
                     self.actionStopRecording()
                 self.toolButton_startRecording.setEnabled(False)

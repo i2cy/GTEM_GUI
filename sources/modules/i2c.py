@@ -6,6 +6,7 @@
 # Created on: 2022/12/2
 
 import wiringpi as wpi
+from pydantic import BaseModel
 
 
 class TCA9554:
@@ -254,7 +255,8 @@ class AmpRateCtl:
             self.update_changes()
 
 
-class FPGAStatusStruct:
+class FPGAStatusStruct(BaseModel):
+
     sdram_init_done: bool = False
     spi_data_ready: bool = False
     spi_rd_error: bool = False

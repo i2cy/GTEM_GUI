@@ -132,6 +132,7 @@ class GPSUpdaterThread(QThread):
 
     def run(self) -> None:
         status = self.gps.manually_update()
+
         if status:
             if self.gps.loc_status:
                 self.parent.label_gpsStatus_2.setText("成功定位")
