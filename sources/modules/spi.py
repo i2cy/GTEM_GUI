@@ -120,7 +120,9 @@ class FPGACom:
                     time.sleep(0.001)
 
             try:
+                self.spi_dev.set_CS1()
                 data = self.spi_dev.spi_read(self.mp_status['batch_size'] * DATA_FRAME_SIZE + 1)[1:]
+                self.spi_dev.set_CS1(False)
             except Exception as err:
                 print("[error] spi receiver error, {}".format(err))
                 continue
