@@ -252,8 +252,8 @@ class MainGraphUpdaterThread(QThread):
         self.last_rander_data1 = ()
         self.last_rander_data2 = ()
         self.last_rander_data3 = ()
-        self.last_rander_limits = ()
-        self.last_rander_range = (REAL_TIME_PLOT_XRANGES, REAL_TIME_PLOT_YRANGES)
+        self.last_render_limits = ()
+        self.last_render_range = (REAL_TIME_PLOT_XRANGES, REAL_TIME_PLOT_YRANGES)
 
     def update_graph(self):
         self.parent.amp_ctl.set_LED(led2=True)
@@ -273,7 +273,7 @@ class MainGraphUpdaterThread(QThread):
         y_range_vb = range_vb[1]
         x_range_vb = range_vb[0]
 
-        y_range = list(self.last_rander_range[1])
+        y_range = list(self.last_render_range[1])
         d_min = min(self.last_rander_data1[1].min(),
                     self.last_rander_data2[1].min(),
                     self.last_rander_data3[1].min())
@@ -299,10 +299,10 @@ class MainGraphUpdaterThread(QThread):
 
         x_range = (xmin, xmax)
 
-        self.last_rander_limits = x_range
-        self.last_rander_range = (x_range, y_range)
+        self.last_render_limits = x_range
+        self.last_render_range = (x_range, y_range)
         # print(f"rt data length: ({len(self.last_rander_data1[0])}, {len(self.last_rander_data1[1])})")
-        # print(f"rt render range: {self.last_rander_range}")
+        # print(f"rt render range: {self.last_render_range}")
 
         if tab_index == 1:  # channel 1
             self.parent.rtPlot_ch1.setData(*self.last_rander_data1)
@@ -319,28 +319,28 @@ class MainGraphUpdaterThread(QThread):
             self.parent.rtPlot_allch3.setData(*self.last_rander_data3)
 
         try:
-            self.parent.rtPlotWeight_all.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1],
-                                                   yMin=self.last_rander_range[1][0], yMax=self.last_rander_range[1][1])
-            self.parent.rtPlotWeight_all.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+            self.parent.rtPlotWeight_all.setLimits(xMin=self.last_render_limits[0], xMax=self.last_render_limits[1],
+                                                   yMin=self.last_render_range[1][0], yMax=self.last_render_range[1][1])
+            self.parent.rtPlotWeight_all.setRange(xRange=self.last_render_range[0], yRange=self.last_render_range[1],
                                                   padding=0)
 
-            self.parent.rtPlotWeight_ch1.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1],
-                                                   yMin=self.last_rander_range[1][0], yMax=self.last_rander_range[1][1])
-            self.parent.rtPlotWeight_ch1.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+            self.parent.rtPlotWeight_ch1.setLimits(xMin=self.last_render_limits[0], xMax=self.last_render_limits[1],
+                                                   yMin=self.last_render_range[1][0], yMax=self.last_render_range[1][1])
+            self.parent.rtPlotWeight_ch1.setRange(xRange=self.last_render_range[0], yRange=self.last_render_range[1],
                                                   padding=0)
 
-            self.parent.rtPlotWeight_ch2.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1],
-                                                   yMin=self.last_rander_range[1][0], yMax=self.last_rander_range[1][1])
-            self.parent.rtPlotWeight_ch2.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+            self.parent.rtPlotWeight_ch2.setLimits(xMin=self.last_render_limits[0], xMax=self.last_render_limits[1],
+                                                   yMin=self.last_render_range[1][0], yMax=self.last_render_range[1][1])
+            self.parent.rtPlotWeight_ch2.setRange(xRange=self.last_render_range[0], yRange=self.last_render_range[1],
                                                   padding=0)
 
-            self.parent.rtPlotWeight_ch3.setLimits(xMin=self.last_rander_limits[0], xMax=self.last_rander_limits[1],
-                                                   yMin=self.last_rander_range[1][0], yMax=self.last_rander_range[1][1])
-            self.parent.rtPlotWeight_ch3.setRange(xRange=self.last_rander_range[0], yRange=self.last_rander_range[1],
+            self.parent.rtPlotWeight_ch3.setLimits(xMin=self.last_render_limits[0], xMax=self.last_render_limits[1],
+                                                   yMin=self.last_render_range[1][0], yMax=self.last_render_range[1][1])
+            self.parent.rtPlotWeight_ch3.setRange(xRange=self.last_render_range[0], yRange=self.last_render_range[1],
                                                   padding=0)
 
         except Exception as err:
-            print(f"range err, {self.last_rander_range}")
+            print(f"range err, {self.last_render_range}")
 
         self.parent.amp_ctl.set_LED(led2=False)
 

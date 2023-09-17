@@ -254,6 +254,107 @@ class AmpRateCtl:
             self.update_changes()
 
 
+class FPGAStatusStruct:
+    sdram_init_done: bool = False
+    spi_data_ready: bool = False
+    spi_rd_error: bool = False
+    sdram_overlap: bool = False
+
+
+class FPGAStat:
+
+    def __init__(self, i2c_bus_path: str, addr: int = 0x40, debug: bool = False):
+        """
+        initialize a status interface for GTEM FPGA designed by Dr.Li
+        :param i2c_bus_path: str, target i2c bus path, example: "/dev/i2c-2"
+        :param addr: int, 7-bit chip address
+        :param debug: bool, enable debug
+        """
+        self.interface_fd = wpi.wiringPiI2CSetupInterface(i2c_bus_path, addr)
+
+        self.flag_debug = debug
+        self.flag_reset = True
+
+        self.cr_cnv_sly_cnt = 2
+        self.cr_cnv_800k_cnt = 125
+
+        self.stat_sdram_overlap = False
+        self.stat_spi_rd_error = False
+        self.stat_spi_data_ready = False
+        self.stat_sdram_init_done = False
+
+    def __send_command(self):
+        """
+        private command update method
+        :return:
+        """
+        # write status
+        payload = [self.flag_reset << 7 | self.flag_debug << 6 | self.cr_cnv_sly_cnt,
+                   self.cr_cnv_800k_cnt,
+                   0x00]
+
+        if self.flag_debug:
+            print("command:", bytes(payload).hex())
+
+        reg = payload[0]
+        payload = int().from_bytes(payload[1:], "little", signed=False)
+
+        wpi.wiringPiI2CWriteReg16(self.interface_fd, reg, payload)
+
+    def read_status(self) -> FPGAStatusStruct:
+        """
+        read fpga status
+        :return: FPGAStatusStruct
+        """
+        # read status
+        data = [wpi.wiringPiI2CRead(self.interface_fd) for ele in range(3)]
+
+        self.stat_sdram_init_done = bool(data[0] & 0b00000001)
+        self.stat_spi_data_ready = bool(data[0] & 0b00000010)
+        self.stat_spi_rd_error = bool(data[0] & 0b00000100)
+        self.stat_sdram_overlap = bool(data[0] & 0b00001000)
+
+        ret = FPGAStatusStruct()
+        ret.spi_rd_error = self.stat_spi_rd_error
+        ret.sdram_overlap = self.stat_sdram_overlap
+        ret.sdram_init_done = self.stat_sdram_init_done
+        ret.spi_data_ready = self.stat_spi_data_ready
+
+        return ret
+
+    def reset(self):
+        """
+        reset FPGA
+        :return:
+        """
+
+        self.flag_reset = False  # hold reset flag
+        self.__send_command()
+        self.flag_reset = True  # release reset flag
+        self.__send_command()
+
+    def enable_debug(self, enable=True):
+        """
+        enable/disable debug
+        :param enable: bool
+        :return:
+        """
+        self.flag_debug = enable
+        self.__send_command()
+
+    def set_cnv_settings(self, cnv_sly_cnt=2, cnv_800k_cnt=125):
+        """
+        set cnv settings
+        :param cnv_sly_cnt: int, default: 2, this value determine duration of cnv, counted by pll_clk
+        :param cnv_800k_cnt: int, default: 125, cnt value when in 800k clock speed. e.g. set this value to 100M/800K=125
+        when pll_clk = 100M, sample rate of ADC is 800K.
+        :return:
+        """
+        self.cr_cnv_800k_cnt = cnv_800k_cnt
+        self.cr_cnv_sly_cnt = cnv_sly_cnt
+        self.__send_command()
+
+
 class FPGACtl:
 
     def __init__(self, i2c_bus_path: str, addr: int = 0x30, debug: bool = False):
