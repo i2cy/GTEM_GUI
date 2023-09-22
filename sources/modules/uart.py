@@ -7,8 +7,8 @@
 
 import threading
 import time
-
 import serial
+from debug import DEBUG
 
 GPS_DEVICE = "/dev/ttyACM0"
 GPS_BR = 9600
@@ -30,7 +30,16 @@ class Degree:
 class GPS:
 
     def __init__(self, device, baud_rate=9600, timeout=0.1, timezone_offset=8):
-        self.__clt = serial.Serial(device, baud_rate, timeout=timeout)
+        try:
+            self.__clt = serial.Serial(device, baud_rate, timeout=timeout)
+        except Exception as err:
+            if DEBUG:
+                print("failed to open device, but debug mode is on, proceeding without actual GPS device")
+            else:
+                raise err
+
+        self.debug = DEBUG
+
         self.__threads = []
         self.__live = False
         self.timezone_offset = timezone_offset
@@ -50,9 +59,13 @@ class GPS:
         self.flag_gps_dump = False
 
     def start(self):
+
         # create thread
-        self.__threads.append(threading.Thread(target=self._receiver))
-        self.__live = True
+        if not self.debug:
+            self.__threads.append(threading.Thread(target=self._receiver))
+            self.__live = True
+        else:
+            self.loc_status = True
 
         # run threads
         [ele.start() for ele in self.__threads]
@@ -75,7 +88,11 @@ class GPS:
         return time.localtime(ret)
 
     def manually_update(self, timeout=2) -> bool:
-        raw = self.read_raw(timeout)
+        if self.debug:
+            return True
+        else:
+            raw = self.read_raw(timeout)
+
         if len(raw) < 6:
             return False
         else:

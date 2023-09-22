@@ -13,6 +13,7 @@ from .globals import *
 from .gtem import Gtem24
 from .uart import GPS, GPS_DEVICE, GPS_BR
 from .spi_dev import DATA_BATCH, DATA_FRAME_SIZE
+from .debug import DEBUG
 from queue import Empty
 from multiprocessing import Manager, Process, Queue
 

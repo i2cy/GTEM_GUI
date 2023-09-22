@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="pi@127.0.0.1:2300 password" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="AliOS">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="CodyBot on I2APP">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
@@ -41,6 +48,13 @@
         <serverdata>
           <mappings>
             <mapping deploy="/home/pi/GTEM" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="pi@127.0.0.1:2300 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/pi/gtem" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

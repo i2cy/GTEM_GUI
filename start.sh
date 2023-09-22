@@ -1,3 +1,3 @@
 #!/bin/sh
 
-sudo python3 /home/pi/GTEM/sources/main.py
+sudo /usr/bin/python3 /home/pi/gtem/sources/main.py

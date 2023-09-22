@@ -27,8 +27,9 @@ from modules.globals import *
 from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread, GPSUpdaterThread, DataUpdaterThread
 from modules.spi import FPGACtl, FPGAStat, FPGACom
 from modules.i2c import BandWidthCtl, AmpRateCtl
+from modules.debug import DEBUG
 
-TEST = False
+TEST = True
 DECOY = False
 
 

@@ -10,7 +10,6 @@ from ch347api import VENDOR_ID, PRODUCT_ID
 import struct
 import numpy as np
 import time
-from i2cylib.utils.bytes import random_keygen
 from queue import Empty
 from multiprocessing import Process, Queue, Manager
 
