@@ -4,9 +4,13 @@
 # Project: 9.3 地面接收机软件
 # Filename: i2c
 # Created on: 2022/12/2
+import sys
 
 import wiringpi as wpi
 from pydantic import BaseModel
+
+
+USE_CH347 = True
 
 
 class TCA9554:
@@ -265,7 +269,7 @@ class FPGAStatusStruct(BaseModel):
 
 class FPGAStat:
 
-    def __init__(self, i2c_bus_path: str, addr: int = 0x40, debug: bool = False):
+    def __init__(self, i2c_bus_path: str, addr: int = 0x40, debug: bool = True):
         """
         initialize a status interface for GTEM FPGA designed by Dr.Li
         :param i2c_bus_path: str, target i2c bus path, example: "/dev/i2c-2"
@@ -314,13 +318,12 @@ class FPGAStat:
         data = wpi.wiringPiI2CReadReg16(self.interface_fd, reg)
 
         if self.flag_debug:
-            for i, ele in enumerate(data):
-                print(i, "-", hex(ele))
+            print(data)
 
-        self.stat_sdram_init_done = bool(data[1] & 0b00000001)
-        self.stat_spi_data_ready = bool(data[1] & 0b00000010)
-        self.stat_spi_rd_error = bool(data[1] & 0b00000100)
-        self.stat_sdram_overlap = bool(data[1] & 0b00001000)
+        self.stat_sdram_init_done = bool(data & 0b00000001)
+        self.stat_spi_data_ready = bool(data & 0b00000010)
+        self.stat_spi_rd_error = bool(data & 0b00000100)
+        self.stat_sdram_overlap = bool(data & 0b00001000)
 
         ret = FPGAStatusStruct()
         ret.spi_rd_error = self.stat_spi_rd_error
@@ -491,7 +494,11 @@ if __name__ == '__main__':
 
     fpga_s = FPGAStat("/dev/i2c-2", debug=True)
 
-    print(fpga_s.read_status().model_dump_json(indent=2))
+    # for i in range(1000):
+    #     print(fpga_s.read_status().model_dump_json(indent=2))
+    #     input("(press ENTER to continue)")
+    #
+    # sys.exit(0)
 
     chip1.set_pin_mode(0x00)
     chip2.set_pin_mode(0x00)
@@ -517,7 +524,7 @@ if __name__ == '__main__':
 
     fpga.enable_channels(True, True, True)
     fpga.set_sample_rate_level(0x00)
-    fpga.set_amp_rate_of_channels(0x0f, 0x0f, 0x0f)
+    fpga.set_amp_rate_of_channels("16", "16", "16")
     time.sleep(0.001)
 
     fpga.stop_FPGA()

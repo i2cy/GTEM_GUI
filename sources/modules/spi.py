@@ -10,7 +10,7 @@ from ch347api import VENDOR_ID, PRODUCT_ID
 import struct
 import numpy as np
 import time
-from queue import Empty
+from queue import Empty, Full
 from multiprocessing import Process, Queue, Manager
 
 if __name__ == "__main__":
@@ -107,10 +107,11 @@ class FPGACom:
     def proc_spi_receiver(self):
         # initialize CH347 communication interface
         self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
-        self.spi_dev.init_SPI(clock_speed_level=0, mode=0)
+        self.spi_dev.init_SPI(clock_speed_level=3, mode=3)
 
         # initialize FPGA status report
-        fpga_stat = FPGAStat("/dev/i2c-2", self.mp_status['debug'])
+        # fpga_stat = FPGAStat("/dev/i2c-2", self.mp_status['debug'])
+        # fpga_stat.enable_debug(True)
 
         if self.mp_status["debug"]:
             print("proc_spi_receiver started")
@@ -120,22 +121,45 @@ class FPGACom:
                 time.sleep(0.001)
                 continue
 
-            while self.mp_status["live"]:
-                status = fpga_stat.read_status()
-                self.mp_status['status'] = status.dict()
-                if status.spi_data_ready:
-                    break
-                else:
-                    time.sleep(0.001)
+            # while self.mp_status["live"]:
+            #     status = fpga_stat.read_status()
+            #     self.mp_status['status'] = status.dict()
+            #
+            #     if status.spi_data_ready:
+            #         break
+            #     else:
+            #         time.sleep(0.001)
+
+            time.sleep(1)
 
             try:
+                frame_size = 32768 // 2
+                data = []
+                first = True
                 self.spi_dev.set_CS1()
-                data = self.spi_dev.spi_read(self.mp_status['batch_size'] * DATA_FRAME_SIZE + 1)[1:]
+                for i in range(self.mp_status['batch_size'] * DATA_FRAME_SIZE // frame_size):
+                    if first:
+                        first = False
+                        # self.spi_dev.spi_write(b"\xff")
+                    data.extend(self.spi_dev.spi_read(frame_size))
+                    if not self.mp_status["running"]:
+                        break
+                if self.mp_status["running"]:
+                    data.extend(self.spi_dev.spi_read(self.mp_status['batch_size'] * DATA_FRAME_SIZE % frame_size))
                 self.spi_dev.set_CS1(False)
+                print("received data of total length: {}".format(len(data)))
+                print("first 3 frame: \n{}\n{}\n{}".format(
+                    bytes(data[0:12]).hex(), bytes(data[12:24]).hex(), bytes(data[24:36]).hex()
+                ))
+
+                try:
+                    self.mp_raw_data_queue.put(data)
+                except Full:
+                    continue
+
             except Exception as err:
                 print("[error] spi receiver error, {}".format(err))
                 continue
-            self.mp_raw_data_queue.put(data)
 
         if self.mp_status["debug"]:
             print("proc_spi_receiver stopped")
@@ -188,7 +212,7 @@ class FPGACom:
             file_io.write(byte_array)  # write to file in sub process
 
             dt = np.dtype(np.uint32)
-            dt.newbyteorder("<")
+            dt.newbyteorder(">")
 
             frame = np.frombuffer(byte_array, dtype=dt)
 

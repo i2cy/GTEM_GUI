@@ -6,12 +6,23 @@
 # Created on: 2023/9/22
 
 from modules.spi import FPGACom, FPGAStat, FPGACtl
+import time
+from ch347api import CH347HIDDev, VENDOR_ID, PRODUCT_ID
 
 
 TEST_FILENAME = "test.bin"
 
 
 if __name__ == '__main__':
+
+    # ctl = FPGACtl("/dev/i2c-2")
+    # ctl.e
+    #
+    # dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
+    # dev.init_SPI(0, )
+    # ctl.enable_channels(True, True, True)
+    #
+    # dev.read(200_000)
 
     print("initializing FPGA communication interface")
     com = FPGACom(to_file_only=True, debug=True)
@@ -25,9 +36,9 @@ if __name__ == '__main__':
     print("setting output file: {}".format(TEST_FILENAME))
     com.set_output_file(TEST_FILENAME)
 
-    print("setting sample rate: 200K")
-    ctl.set_sample_rate_level(0xd)
-    com.set_batch_size(0xd)
+    print("setting sample rate: 20K")
+    ctl.set_sample_rate_level(0x6)
+    com.set_batch_size(0x6)
 
     print("setting amp rate: x1")
     ctl.set_amp_rate_of_channels("1", "1", "1")
@@ -45,12 +56,19 @@ if __name__ == '__main__':
 
     ctl.stop_FPGA()
     com.close()
+    com.kill()
 
     print("file saved in \"{}\"".format(TEST_FILENAME))
 
     f = open(TEST_FILENAME, "rb")
 
     print("first 2 frame of data:")
-    print("        CH1        CH2         CH3")
-    for i in range(2):
-        print("  ", f.read(3).hex(), f.read(3).hex(), f.read(3).hex())
+    print("   CH1      CH2      CH3")
+    for i in range(6):
+        print("  ", f.read(4).hex(), f.read(4).hex(), f.read(4).hex())
+
+    f.seek(0)
+    print("verifying data collected (1 byte of header info ignored in each channel)")
+
+
+    f.close()
