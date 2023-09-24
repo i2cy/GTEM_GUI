@@ -79,9 +79,7 @@ class FPGACom:
         self.mp_ch2_data_queue_x4 = Queue(200_000_000 // 4)
         self.mp_ch3_data_queue_x4 = Queue(200_000_000 // 4)
 
-        # initialize SPI device
-        self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
-        self.spi_dev.init_SPI(clock_speed_level=0, mode=0)
+        self.spi_dev = None
 
         self.filename = ""
         self.file_io = None
@@ -97,8 +95,20 @@ class FPGACom:
                 time.sleep(0.001)
             print("swapping file completed")
 
+    def set_batch_size(self, sample_rate_level: int):
+        """
+        0--500  1--1k   2--2k   3--4k   4--8k   5--10k  6--20k  7--32k
+        8--40k  9--80k  A--25k  B--50k  C--100k D--200k E--400k F--800k
+        """
+        __comvert_list = (500, 1_000, 2_000, 4_000, 8_000, 10_000, 20_000, 32_000,
+                          40_000, 80_000, 25_000, 50_000, 100_000, 200_000, 400_000, 800_000)
+        self.mp_status['batch_size'] = __comvert_list[sample_rate_level]
 
     def proc_spi_receiver(self):
+        # initialize CH347 communication interface
+        self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
+        self.spi_dev.init_SPI(clock_speed_level=0, mode=0)
+
         # initialize FPGA status report
         fpga_stat = FPGAStat("/dev/i2c-2", self.mp_status['debug'])
 

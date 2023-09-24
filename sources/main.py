@@ -516,10 +516,6 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         print("SPI DEV status before file open: {}".format(self.fpga_com.mp_status))
         self.fpga_com.set_output_file(abs_path)
 
-        # start FPGA
-        self.fpga_com.open()
-        self.fpga_ctl.start_FPGA()
-
         # set amp rate
         self.amp_ctl.set_amp_rate(
             self.comboBox_ch1Amp.currentText(),
@@ -535,6 +531,10 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             self.comboBox_ch2BandWidth.currentText(),
             self.comboBox_ch3BandWidth.currentText(),
         )
+
+        # start FPGA
+        self.fpga_com.open()
+        self.fpga_ctl.start_FPGA()
 
         # update filename display
         self.label_titleFilenameHeader.setVisible(True)

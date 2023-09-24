@@ -309,12 +309,18 @@ class FPGAStat:
         :return: FPGAStatusStruct
         """
         # read status
-        data = [wpi.wiringPiI2CRead(self.interface_fd) for ele in range(3)]
+        # data = [wpi.wiringPiI2CRead(self.interface_fd) for ele in range(3)]
+        reg = self.flag_reset << 7 | self.flag_debug << 6 | self.cr_cnv_sly_cnt
+        data = wpi.wiringPiI2CReadReg16(self.interface_fd, reg)
 
-        self.stat_sdram_init_done = bool(data[0] & 0b00000001)
-        self.stat_spi_data_ready = bool(data[0] & 0b00000010)
-        self.stat_spi_rd_error = bool(data[0] & 0b00000100)
-        self.stat_sdram_overlap = bool(data[0] & 0b00001000)
+        if self.flag_debug:
+            for i, ele in enumerate(data):
+                print(i, "-", hex(ele))
+
+        self.stat_sdram_init_done = bool(data[1] & 0b00000001)
+        self.stat_spi_data_ready = bool(data[1] & 0b00000010)
+        self.stat_spi_rd_error = bool(data[1] & 0b00000100)
+        self.stat_sdram_overlap = bool(data[1] & 0b00001000)
 
         ret = FPGAStatusStruct()
         ret.spi_rd_error = self.stat_spi_rd_error
@@ -482,6 +488,10 @@ if __name__ == '__main__':
     chip3 = TCA9554("/dev/i2c-2", 0x23)
     chip4 = TCA9539("/dev/i2c-2", 0x74)
     fpga = FPGACtl("/dev/i2c-2", debug=True)
+
+    fpga_s = FPGAStat("/dev/i2c-2", debug=True)
+
+    print(fpga_s.read_status().model_dump_json(indent=2))
 
     chip1.set_pin_mode(0x00)
     chip2.set_pin_mode(0x00)
