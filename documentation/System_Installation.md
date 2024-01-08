@@ -28,7 +28,7 @@
 3. 拷贝源码
 4. 更新pip
 
-   `pip install -U pip`
+   `pip install -U pip`  
 
 5. 安装requirements.txt
 

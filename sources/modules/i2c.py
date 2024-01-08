@@ -4,11 +4,9 @@
 # Project: 9.3 地面接收机软件
 # Filename: i2c
 # Created on: 2022/12/2
-import sys
 
 import wiringpi as wpi
 from pydantic import BaseModel
-
 
 USE_CH347 = True
 
@@ -260,11 +258,11 @@ class AmpRateCtl:
 
 
 class FPGAStatusStruct(BaseModel):
-
     sdram_init_done: bool = False
     spi_data_ready: bool = False
     spi_rd_error: bool = False
     sdram_overlap: bool = False
+    pll_ready: bool = False
 
 
 class FPGAStat:
@@ -395,8 +393,18 @@ class FPGACtl:
         }
 
         self.debug = debug
+        self.flag_reset = True
 
-    def __send_command(self):
+        self.cr_cnv_sly_cnt = 2
+        self.cr_cnv_800k_cnt = 125
+
+        self.stat_sdram_overlap = False
+        self.stat_spi_rd_error = False
+        self.stat_spi_data_ready = False
+        self.stat_sdram_init_done = False
+        self.stat_pll_ready = False
+
+    def __update_regs(self, reset=False, start=False):
         """
         private command update method
         :return:
@@ -406,26 +414,51 @@ class FPGACtl:
         else:
             fpga_status = 0x50
 
-        payload = [fpga_status | (self.chn_is_open[0] | self.chn_is_open[1] << 1 | self.chn_is_open[2] << 2),
-                   (self.sample_rate_level % 16 << 4) | (self.chn_amp_rate_level[0] % 16),
-                   (self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16)]
+        reg00_payload = [fpga_status | (self.chn_is_open[0] | self.chn_is_open[1] << 1 | self.chn_is_open[2] << 2),
+                         (self.sample_rate_level % 16 << 4) | (self.chn_amp_rate_level[0] % 16)]
+
+        reg01_payload = [(self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16), 0x00]
+
+        reg02_payload = [self.flag_reset << 7 | self.debug << 6 | self.cr_cnv_sly_cnt,
+                         self.cr_cnv_800k_cnt]
 
         if self.debug:
-            print("command:", bytes(payload).hex())
+            print("reg00_command: {}".format(bytes(reg00_payload).hex()))
+            print("reg01_command: {}".format(bytes(reg01_payload).hex()))
+            print("reg02_command: {}".format(bytes(reg02_payload).hex()))
 
-        reg = payload[0]
-        payload = int().from_bytes(payload[1:], "little", signed=False)
+        if not reset:
+            # write reg00
+            payload = int().from_bytes(reg00_payload, "little", signed=False)
+            wpi.wiringPiI2CWriteReg16(self.interface_fd, 0x00, payload)
 
-        wpi.wiringPiI2CWriteReg16(self.interface_fd, reg, payload)
+            if not start:
+                # write reg01
+                payload = int().from_bytes(reg01_payload, "little", signed=False)
+                wpi.wiringPiI2CWriteReg16(self.interface_fd, 0x01, payload)
+
+            # if self.debug:
+            #     print("reg00_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x00))))
+            #     print("reg01_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x01))))
+
+        if not start:
+            # write reg02
+            payload = int().from_bytes(reg02_payload, "little", signed=False)
+            wpi.wiringPiI2CWriteReg16(self.interface_fd, 0x02, payload)
+
+        # if self.debug:
+        #     print("reg02_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x02))))
 
     def start_FPGA(self):
         """
         start FPGA transmission
         :return:
         """
-        self.fpga_is_open = True
+        self.fpga_is_open = False
+        self.__update_regs()
 
-        self.__send_command()
+        self.fpga_is_open = True
+        self.__update_regs(start=True)
 
     def stop_FPGA(self):
         """
@@ -433,8 +466,7 @@ class FPGACtl:
         :return:
         """
         self.fpga_is_open = False
-
-        self.__send_command()
+        self.__update_regs()
 
     def enable_channels(self, ch1: bool = True, ch2: bool = True, ch3: bool = True):
         """
@@ -448,9 +480,6 @@ class FPGACtl:
         self.chn_is_open[1] = ch2
         self.chn_is_open[0] = ch3
 
-        # if self.debug:
-        #     self.__send_command()
-
     def set_sample_rate_level(self, sample_rate_level):
         """
         set sample rate level,
@@ -460,9 +489,6 @@ class FPGACtl:
         :return:
         """
         self.sample_rate_level = sample_rate_level
-
-        # if self.debug:
-        #     self.__send_command()
 
     def set_amp_rate_of_channels(self, ch1_amp: str, ch2_amp: str, ch3_amp: str):
         """
@@ -476,11 +502,66 @@ class FPGACtl:
         self.chn_amp_rate_level[1] = self.__amp_rate_sheet[ch2_amp]
         self.chn_amp_rate_level[2] = self.__amp_rate_sheet[ch3_amp]
 
-        # if self.debug:
-        #     self.__send_command()
+    def read_status(self) -> FPGAStatusStruct:
+        """
+        read fpga status
+        :return: FPGAStatusStruct
+        """
+
+        data = wpi.wiringPiI2CReadReg16(self.interface_fd, 0x01)
+
+        if self.debug:
+            print(data)
+
+        self.stat_sdram_init_done = bool(data & 0b00000001)
+        self.stat_spi_data_ready = bool(data & 0b00000010)
+        self.stat_spi_rd_error = bool(data & 0b00000100)
+        self.stat_sdram_overlap = bool(data & 0b00001000)
+        self.stat_pll_ready = bool(data & 0b00010000)
+
+        ret = FPGAStatusStruct()
+        ret.spi_rd_error = self.stat_spi_rd_error
+        ret.sdram_overlap = self.stat_sdram_overlap
+        ret.sdram_init_done = self.stat_sdram_init_done
+        ret.spi_data_ready = self.stat_spi_data_ready
+        ret.pll_ready = self.stat_pll_ready
+
+        return ret
+
+    def reset(self):
+        """
+        reset FPGA
+        :return:
+        """
+
+        self.flag_reset = False  # hold reset flag
+        self.__update_regs(reset=True)
+        self.flag_reset = True  # release reset flag
+        self.__update_regs(reset=True)
+
+    def enable_debug(self, enable=True):
+        """
+        enable/disable debug
+        :param enable: bool
+        :return:
+        """
+        self.debug = enable
+        self.__update_regs()
+
+    def set_cnv_settings(self, cnv_sly_cnt=2, cnv_800k_cnt=125):
+        """
+        set cnv settings
+        :param cnv_sly_cnt: int, default: 2, this value determine duration of cnv, counted by pll_clk
+        :param cnv_800k_cnt: int, default: 125, cnt value when in 800k clock speed. e.g. set this value to 100M/800K=125
+        when pll_clk = 100M, sample rate of ADC is 800K.
+        :return:
+        """
+        self.cr_cnv_800k_cnt = cnv_800k_cnt
+        self.cr_cnv_sly_cnt = cnv_sly_cnt
+        self.__update_regs()
 
 
-if __name__ == '__main__':
+def test_0():
     import os
     import time
 
@@ -490,15 +571,6 @@ if __name__ == '__main__':
     chip2 = TCA9554("/dev/i2c-2", 0x21)
     chip3 = TCA9554("/dev/i2c-2", 0x23)
     chip4 = TCA9539("/dev/i2c-2", 0x74)
-    fpga = FPGACtl("/dev/i2c-2", debug=True)
-
-    fpga_s = FPGAStat("/dev/i2c-2", debug=True)
-
-    # for i in range(1000):
-    #     print(fpga_s.read_status().model_dump_json(indent=2))
-    #     input("(press ENTER to continue)")
-    #
-    # sys.exit(0)
 
     chip1.set_pin_mode(0x00)
     chip2.set_pin_mode(0x00)
@@ -522,16 +594,41 @@ if __name__ == '__main__':
     chip3.write_pins(0xff)
     chip4.write_pins(0xffff)
 
+    print("now testing FPGA")
+
+    fpga = FPGACtl("/dev/i2c-2", debug=True)
+
+    # fpga.reset()
+
+    for i in range(1):
+        print(fpga.read_status().model_dump_json(indent=2))
+        # input("(press ENTER to continue) {} in 5".format(i + 1))
+
     fpga.enable_channels(True, True, True)
-    fpga.set_sample_rate_level(0x00)
-    fpga.set_amp_rate_of_channels("16", "16", "16")
+    fpga.set_sample_rate_level(0x0d)
+    fpga.set_amp_rate_of_channels("128", "128", "128")
     time.sleep(0.001)
 
-    fpga.stop_FPGA()
-    time.sleep(1)
-
-    fpga.set_sample_rate_level(0x05)  # 10K
     fpga.start_FPGA()
+
+    print(fpga.read_status().model_dump_json(indent=2))
 
     # time.sleep(1)
     # fpga.stop_FPGA()
+
+
+def test_1():
+    interface_fd = wpi.wiringPiI2CSetupInterface("/dev/i2c-2", 0x30)
+    # wpi.wiringPiI2CWriteReg16(interface_fd, 0x01, 0x112233)
+    wpi.wiringPiI2CWrite(interface_fd, 0x01)
+    wpi.wiringPiI2CWrite(interface_fd, 0x11)
+    wpi.wiringPiI2CWrite(interface_fd, 0x22)
+    wpi.wiringPiI2CWrite(interface_fd, 0x33)
+    wpi.wiringPiI2CWrite(interface_fd, 0x01)
+    print(wpi.wiringPiI2CRead(interface_fd))
+    print(wpi.wiringPiI2CRead(interface_fd))
+    print(wpi.wiringPiI2CRead(interface_fd))
+
+
+if __name__ == '__main__':
+    test_0()
