@@ -8,9 +8,19 @@
 from modules.spi import FPGACom, FPGAStat, FPGACtl
 import time
 from ch347api import CH347HIDDev, VENDOR_ID, PRODUCT_ID
+import threading
 
 
 TEST_FILENAME = "test.bin"
+
+
+def status_update_thread(fpga_ctl: FPGACtl, fpga_com: FPGACom):
+    while fpga_ctl.fpga_is_open:
+        s = fpga_ctl.read_status()
+        fpga_com.update_status(s)
+        if s.spi_data_ready:
+            print("data ready")
+        time.sleep(0.01)
 
 
 if __name__ == '__main__':
@@ -28,7 +38,7 @@ if __name__ == '__main__':
     com = FPGACom(to_file_only=True, debug=True)
 
     print("initializing FPGA controller")
-    ctl = FPGACtl("/dev/i2c-2")
+    ctl = FPGACtl("/dev/i2c-2", debug=True)
 
     print("starting communication interface")
     com.start()
@@ -43,14 +53,15 @@ if __name__ == '__main__':
     print("setting amp rate: x1")
     ctl.set_amp_rate_of_channels("1", "1", "1")
 
-    print("current FPGA status: {}".format(com.get_status().model_dump_json(indent=2)))
+    print("current FPGA status: {}".format(ctl.read_status().model_dump_json(indent=2)))
     input("(press ENTER to start recording)")
 
     ctl.enable_channels(True, True, True)
-    print("current FPGA status: {}".format(com.get_status().model_dump_json(indent=2)))
+    print("current FPGA status: {}".format(ctl.read_status().model_dump_json(indent=2)))
 
     com.open()
     ctl.start_FPGA()
+    threading.Thread(target=status_update_thread, args=(ctl, com)).start()
 
     input("(press ENTER to stop recording)")
 
@@ -69,6 +80,4 @@ if __name__ == '__main__':
 
     f.seek(0)
     print("verifying data collected (1 byte of header info ignored in each channel)")
-
-
     f.close()

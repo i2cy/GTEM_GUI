@@ -7,6 +7,7 @@
 
 import wiringpi as wpi
 from pydantic import BaseModel
+import time
 
 USE_CH347 = True
 
@@ -315,8 +316,8 @@ class FPGAStat:
         reg = self.flag_reset << 7 | self.flag_debug << 6 | self.cr_cnv_sly_cnt
         data = wpi.wiringPiI2CReadReg16(self.interface_fd, reg)
 
-        if self.flag_debug:
-            print(data)
+        # if self.flag_debug:
+        #     print(data)
 
         self.stat_sdram_init_done = bool(data & 0b00000001)
         self.stat_spi_data_ready = bool(data & 0b00000010)
@@ -422,10 +423,10 @@ class FPGACtl:
         reg02_payload = [self.flag_reset << 7 | self.debug << 6 | self.cr_cnv_sly_cnt,
                          self.cr_cnv_800k_cnt]
 
-        if self.debug:
-            print("reg00_command: {}".format(bytes(reg00_payload).hex()))
-            print("reg01_command: {}".format(bytes(reg01_payload).hex()))
-            print("reg02_command: {}".format(bytes(reg02_payload).hex()))
+        # if self.debug:
+        #     print("reg00_command: {}".format(bytes(reg00_payload).hex()))
+        #     print("reg01_command: {}".format(bytes(reg01_payload).hex()))
+        #     print("reg02_command: {}".format(bytes(reg02_payload).hex()))
 
         if not reset:
             # write reg00
@@ -510,8 +511,8 @@ class FPGACtl:
 
         data = wpi.wiringPiI2CReadReg16(self.interface_fd, 0x01)
 
-        if self.debug:
-            print(data)
+        # if self.debug:
+        #     print(data)
 
         self.stat_sdram_init_done = bool(data & 0b00000001)
         self.stat_spi_data_ready = bool(data & 0b00000010)
@@ -620,14 +621,11 @@ def test_0():
 def test_1():
     interface_fd = wpi.wiringPiI2CSetupInterface("/dev/i2c-2", 0x30)
     # wpi.wiringPiI2CWriteReg16(interface_fd, 0x01, 0x112233)
-    wpi.wiringPiI2CWrite(interface_fd, 0x01)
-    wpi.wiringPiI2CWrite(interface_fd, 0x11)
-    wpi.wiringPiI2CWrite(interface_fd, 0x22)
-    wpi.wiringPiI2CWrite(interface_fd, 0x33)
-    wpi.wiringPiI2CWrite(interface_fd, 0x01)
-    print(wpi.wiringPiI2CRead(interface_fd))
-    print(wpi.wiringPiI2CRead(interface_fd))
-    print(wpi.wiringPiI2CRead(interface_fd))
+    print(wpi.wiringPiI2CReadReg16(interface_fd, 0x00))
+    time.sleep(0.001)
+    print(wpi.wiringPiI2CReadReg16(interface_fd, 0x01))
+    time.sleep(0.001)
+    print(wpi.wiringPiI2CReadReg16(interface_fd, 0x02))
 
 
 if __name__ == '__main__':
