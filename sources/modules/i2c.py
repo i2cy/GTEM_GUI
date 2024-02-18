@@ -383,6 +383,7 @@ class FPGACtl:
         self.chn_amp_rate_level = [0, 0, 0]
 
         self.__amp_rate_sheet = {
+            "0": 0b0000,
             "1": 0b0011,
             "2": 0b0100,
             "4": 0b0101,
@@ -391,6 +392,7 @@ class FPGACtl:
             "32": 0b1000,
             "64": 0b1001,
             "128": 0b1010
+
         }
 
         self.debug = debug
@@ -404,6 +406,8 @@ class FPGACtl:
         self.stat_spi_data_ready = False
         self.stat_sdram_init_done = False
         self.stat_pll_ready = False
+
+        self.status_validate_byte = 0xff
 
     def __update_regs(self, reset=False, start=False):
         """
@@ -438,6 +442,8 @@ class FPGACtl:
                 payload = int().from_bytes(reg01_payload, "little", signed=False)
                 wpi.wiringPiI2CWriteReg16(self.interface_fd, 0x01, payload)
 
+                self.status_validate_byte = reg01_payload[0]
+
             # if self.debug:
             #     print("reg00_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x00))))
             #     print("reg01_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x01))))
@@ -450,11 +456,20 @@ class FPGACtl:
         # if self.debug:
         #     print("reg02_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x02))))
 
+
     def start_FPGA(self):
         """
         start FPGA transmission
         :return:
         """
+
+        ready = False
+
+        while not ready:
+            self.read_status()
+            ready = self.stat_sdram_init_done
+            time.sleep(0.02)
+
         self.fpga_is_open = False
         self.__update_regs()
 
@@ -512,13 +527,21 @@ class FPGACtl:
         data = wpi.wiringPiI2CReadReg16(self.interface_fd, 0x01)
 
         # if self.debug:
-        #     print(data)
+        #     print("0x01 data:", bin(data))
 
-        self.stat_sdram_init_done = bool(data & 0b00000001)
-        self.stat_spi_data_ready = bool(data & 0b00000010)
-        self.stat_spi_rd_error = bool(data & 0b00000100)
-        self.stat_sdram_overlap = bool(data & 0b00001000)
-        self.stat_pll_ready = bool(data & 0b00010000)
+        if 0 <= data <= 65536:
+            b = data & 0xff
+
+            if b == self.status_validate_byte or self.status_validate_byte == 0xff:
+                self.stat_sdram_init_done = bool(data & 0b0000000100000000)
+                self.stat_spi_data_ready = bool(data & 0b0000001000000000)
+                self.stat_spi_rd_error = bool(data & 0b0000010000000000)
+                self.stat_sdram_overlap = bool(data & 0b0000100000000000)
+                self.stat_pll_ready = bool(data & 0b0001000000000000)
+
+            # elif self.debug:
+            #     print("\ninvalid status data detected: {}, valid byte: 0x{}".format(
+            #         hex(b), bytes((self.status_validate_byte,)).hex()))
 
         ret = FPGAStatusStruct()
         ret.spi_rd_error = self.stat_spi_rd_error
@@ -537,6 +560,7 @@ class FPGACtl:
 
         self.flag_reset = False  # hold reset flag
         self.__update_regs(reset=True)
+        time.sleep(0.01)
         self.flag_reset = True  # release reset flag
         self.__update_regs(reset=True)
 

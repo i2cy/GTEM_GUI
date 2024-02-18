@@ -8,7 +8,7 @@
 import threading
 import time
 import serial
-from debug import DEBUG
+from .debug import DEBUG
 
 GPS_DEVICE = "/dev/ttyACM0"
 GPS_BR = 9600
@@ -92,6 +92,8 @@ class GPS:
             return True
         else:
             raw = self.read_raw(timeout)
+
+            print("GPS DEBUG:", raw)
 
         if len(raw) < 6:
             return False

@@ -4,41 +4,21 @@
 # Project: System_Installation.md
 # Filename: spi_test
 # Created on: 2023/9/22
+import struct
 
-from modules.spi import FPGACom, FPGAStat, FPGACtl
+from modules.spi import FPGACom, FPGACtl
 import time
-from ch347api import CH347HIDDev, VENDOR_ID, PRODUCT_ID
-import threading
-
 
 TEST_FILENAME = "test.bin"
 
-
-def status_update_thread(fpga_ctl: FPGACtl, fpga_com: FPGACom):
-    while fpga_ctl.fpga_is_open:
-        s = fpga_ctl.read_status()
-        fpga_com.update_status(s)
-        if s.spi_data_ready:
-            print("data ready")
-        time.sleep(0.01)
-
+LIVE = True
 
 if __name__ == '__main__':
-
-    # ctl = FPGACtl("/dev/i2c-2")
-    # ctl.e
-    #
-    # dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
-    # dev.init_SPI(0, )
-    # ctl.enable_channels(True, True, True)
-    #
-    # dev.read(200_000)
-
-    print("initializing FPGA communication interface")
-    com = FPGACom(to_file_only=True, debug=True)
-
     print("initializing FPGA controller")
     ctl = FPGACtl("/dev/i2c-2", debug=True)
+
+    print("initializing FPGA communication interface")
+    com = FPGACom(to_file_only=True, ctl=ctl, debug=True)
 
     print("starting communication interface")
     com.start()
@@ -46,28 +26,28 @@ if __name__ == '__main__':
     print("setting output file: {}".format(TEST_FILENAME))
     com.set_output_file(TEST_FILENAME)
 
-    print("setting sample rate: 20K")
-    ctl.set_sample_rate_level(0x6)
-    com.set_batch_size(0x6)
+    print("setting sample rate: 50K")
+    ctl.set_sample_rate_level(0xa)
+    com.set_batch_size(0xa)
 
     print("setting amp rate: x1")
-    ctl.set_amp_rate_of_channels("1", "1", "1")
+    ctl.set_amp_rate_of_channels("0", "0", "0")
 
     print("current FPGA status: {}".format(ctl.read_status().model_dump_json(indent=2)))
-    input("(press ENTER to start recording)")
+    # input("(press ENTER to start recording)")
 
     ctl.enable_channels(True, True, True)
-    print("current FPGA status: {}".format(ctl.read_status().model_dump_json(indent=2)))
+    print("before start FPGA status: {}".format(ctl.read_status().model_dump_json(indent=2)))
 
     com.open()
-    ctl.start_FPGA()
-    threading.Thread(target=status_update_thread, args=(ctl, com)).start()
+    print("after start FPGA status: {}".format(ctl.read_status().model_dump_json(indent=2)))
 
     input("(press ENTER to stop recording)")
+    # time.sleep(3)
 
-    ctl.stop_FPGA()
     com.close()
     com.kill()
+    ctl.reset()
 
     print("file saved in \"{}\"".format(TEST_FILENAME))
 
@@ -80,4 +60,42 @@ if __name__ == '__main__':
 
     f.seek(0)
     print("verifying data collected (1 byte of header info ignored in each channel)")
+    n = 0
+    err_log = []
+    headers = [0x05, 0x06, 0x07]
+    EXIT = False
+    while not EXIT:
+        for ch_n in range(3):
+            chunk = f.read(4)
+            if len(chunk) < 4:
+                EXIT = True
+                break
+
+            num = int().from_bytes(chunk[1:], byteorder='big', signed=False)
+
+            if chunk[0] != headers[ch_n]:
+                err_log.append("invalid header 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+                    bytes((chunk[0],)).hex(), bytes((headers[ch_n],)).hex(), ch_n + 1, n + 1, (n + 1) * 3 * 32
+                ))
+
+            if num != n + 1:
+                err_log.append("invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+                    chunk[1:].hex(), (n + 1).to_bytes(3, byteorder='big', signed=False).hex(),
+                    ch_n + 1, n + 1, (n + 1) * 3 * 32
+                ))
+
+        n += 1
+
     f.close()
+
+    print("{} err detected, detailed information shown below: ".format(len(err_log)))
+
+    if len(err_log) < 9:
+        for i, ele in enumerate(err_log):
+            print(" {}. {}".format(i + 1, ele))
+    else:
+        for i, ele in enumerate(err_log[:9]):
+            print(" {}. {}".format(i + 1, ele))
+        print(" ...and {} more".format(len(err_log) - 9))
+
+    del com

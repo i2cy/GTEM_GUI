@@ -388,8 +388,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.label_filenameHeader_2.setVisible(False)
 
         # FPGA communication
-        self.fpga_com = FPGACom(to_file_only=DECOY)
         self.fpga_ctl = FPGACtl(I2C_BUS)
+        self.fpga_com = FPGACom(to_file_only=DECOY, ctl=self.fpga_ctl, debug=True)
 
         self.fpga_com.start()
 
@@ -513,7 +513,6 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         # load filename
         filename = self.staticGenerateFilename()
         abs_path = f"{MOUNT_PATH}/{filename}.bin"
-        print("SPI DEV status before file open: {}".format(self.fpga_com.mp_status))
         self.fpga_com.set_output_file(abs_path)
 
         # set amp rate
@@ -637,7 +636,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             self.toolButton_startRecording.setEnabled(False)
 
         # update GPS
-        fpga_status = self.fpga_com.get_status()
+        fpga_status = self.fpga_ctl.read_status()
         if self.gps_updater.gps_status and fpga_status.sdram_init_done:
             self.toolButton_startRecording.setEnabled(True)
             self.gps_error_count = 0
