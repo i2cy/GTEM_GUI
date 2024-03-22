@@ -28,13 +28,13 @@
       2300
       ```
     - 点击`Open`按钮
-      <div align="center"><img width="244" src="https://pan.i2cy.tech/f/d4Fe/%7B0E14521B-B79D-4819-8FD5-0A546B49A568%7D.png"/></div>
+      <div align="center"><img width="380" src="https://pan.i2cy.tech/f/d4Fe/%7B0E14521B-B79D-4819-8FD5-0A546B49A568%7D.png"/></div>
     - 若是第一次连接，会弹出以下确认窗口，点击`accept`即可
-      <div align="center"><img width="244" src="https://pan.i2cy.tech/f/jaiK/%7B59483F07-8FDD-486b-A786-8B3D92DABC50%7D.png"/></div>
+      <div align="center"><img width="380" src="https://pan.i2cy.tech/f/jaiK/%7B59483F07-8FDD-486b-A786-8B3D92DABC50%7D.png"/></div>
     - 随后登陆，用户名为`pi`，密码也为`pi`（在**login as**出现之后输入`pi`，回车后继续输入`pi`然后回车）（另注tty登陆输入密码时不会显示，只管输入就行）
-      <div align="center"><img width="244" src="https://pan.i2cy.tech/f/BNIa/%7B3484E5D6-835F-4bfc-AE8C-FF6345486686%7D.png"/></div>
+      <div align="center"><img width="380" src="https://pan.i2cy.tech/f/BNIa/%7B3484E5D6-835F-4bfc-AE8C-FF6345486686%7D.png"/></div>
     - 而后进入shell，可以执行测试命令
-      <div align="center"><img width="244" src="https://pan.i2cy.tech/f/D5T2/%7BBB8B1BDC-7CC5-4745-BA10-BE675A92D1E0%7D.png"/></div>
+      <div align="center"><img width="380" src="https://pan.i2cy.tech/f/D5T2/%7BBB8B1BDC-7CC5-4745-BA10-BE675A92D1E0%7D.png"/></div>
     
     
 ## 执行测试
@@ -46,7 +46,7 @@
    
 
 2. 停在此行说明正在等待FPGA的`spi_data_ready`标志
-   <div align="center"><img width="244" src="https://pan.i2cy.tech/f/yAcR/%7B576CC8C9-5207-42fe-A29F-9E6DAAF86187%7D.png"/></div>
+   <div align="center"><img width="380" src="https://pan.i2cy.tech/f/yAcR/%7B576CC8C9-5207-42fe-A29F-9E6DAAF86187%7D.png"/></div>
 
 
 3. 一般收集3~4个`spi_data_ready`就可以按下回车键结束采集并校验数据
