@@ -26,9 +26,9 @@ if __name__ == '__main__':
     print("setting output file: {}".format(TEST_FILENAME))
     com.set_output_file(TEST_FILENAME)
 
-    print("setting sample rate: 50K")
-    ctl.set_sample_rate_level(0xa)
-    com.set_batch_size(0xa)
+    print("setting sample rate: 100K")
+    ctl.set_sample_rate_level(0xc)
+    com.set_batch_size(0xc)
 
     print("setting amp rate: x1")
     ctl.set_amp_rate_of_channels("0", "0", "0")
@@ -53,18 +53,20 @@ if __name__ == '__main__':
 
     f = open(TEST_FILENAME, "rb")
 
-    print("first 2 frame of data:")
+    print("first 6 frames of data:")
     print("   CH1      CH2      CH3")
     for i in range(6):
         print("  ", f.read(4).hex(), f.read(4).hex(), f.read(4).hex())
 
     f.seek(0)
-    print("verifying data collected (1 byte of header info ignored in each channel)")
+    print("verifying data collected")
     n = 0
+    err_frame_n = 0
     err_log = []
     headers = [0x05, 0x06, 0x07]
     EXIT = False
     while not EXIT:
+        no_err = True
         for ch_n in range(3):
             chunk = f.read(4)
             if len(chunk) < 4:
@@ -78,24 +80,35 @@ if __name__ == '__main__':
                     bytes((chunk[0],)).hex(), bytes((headers[ch_n],)).hex(), ch_n + 1, n + 1, (n + 1) * 3 * 32
                 ))
 
-            if num != n + 1:
-                err_log.append("invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
-                    chunk[1:].hex(), (n + 1).to_bytes(3, byteorder='big', signed=False).hex(),
-                    ch_n + 1, n + 1, (n + 1) * 3 * 32
-                ))
+            # if num != n + 1:
+            #     err_log.append("invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+            #         chunk[1:].hex(), (n + 1).to_bytes(3, byteorder='big', signed=False).hex(),
+            #         ch_n + 1, n + 1, (n + 1) * 3 * 32
+            #     ))
+                no_err = False
+
+            if num != 0x5aa55a:
+                err_log.append(
+                    "invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+                        chunk[1:].hex(), (0x5aa55a).to_bytes(3, byteorder='big', signed=False).hex(),
+                        ch_n + 1, n + 1, (n + 1) * 3 * 32
+                    ))
+                no_err = False
+
+        if not no_err:
+            err_frame_n += 1
 
         n += 1
 
     f.close()
 
-    print("{} err detected, detailed information shown below: ".format(len(err_log)))
+    print("{} errs detected in total {} frames, {} err frames, rate of error: {}, detailed information shown below: ".format(
+        len(err_log), n, err_frame_n, 100*err_frame_n/n))
 
-    if len(err_log) < 9:
+    if len(err_log) < 20:
         for i, ele in enumerate(err_log):
-            print(" {}. {}".format(i + 1, ele))
+            print(" {:0>2d}. {}".format(i + 1, ele))
     else:
-        for i, ele in enumerate(err_log[:9]):
-            print(" {}. {}".format(i + 1, ele))
+        for i, ele in enumerate(err_log[:20]):
+            print(" {:0>2d}. {}".format(i + 1, ele))
         print(" ...and {} more".format(len(err_log) - 9))
-
-    del com

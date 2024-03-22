@@ -6,7 +6,7 @@
 # Created on: 2022/11/22
 
 from ctypes import c_bool, c_int, c_char_p
-from ch347api import CH347HIDDev, SPIClockFreq
+from ch347api import CH347HIDDev, SPIClockFreq, SPIDevice
 from ch347api import VENDOR_ID, PRODUCT_ID
 import struct
 import numpy as np
@@ -21,7 +21,7 @@ if __name__ == "__main__":
 else:
     from .i2c import FPGACtl, FPGAStatusStruct
 
-SPI_SPEED = SPIClockFreq.f_15M
+SPI_SPEED = SPIClockFreq.f_30M
 
 
 def __test_unit_generate_frame(num):
@@ -58,12 +58,6 @@ BITS_PER_WORD = 8
 SPI_MODE = 0b00
 
 DATA_FRAME_SIZE = 3 * 4
-
-
-class MP_STATUS(dict):
-
-    def __init__(self, dict_object):
-        super().__init__(dict_object)
 
 
 class FPGACom:
@@ -217,10 +211,12 @@ class FPGACom:
                 continue
 
             try:
-                frame_size = 32768 // 2
+                frame_size = 32756
                 data = []
                 self.spi_dev.set_CS1()
-                for i in range(self.mp_batchsize.value * DATA_FRAME_SIZE // frame_size):
+                read_byte_count = 0
+                batch = self.mp_batchsize.value * DATA_FRAME_SIZE
+                for i in range(batch // frame_size):
                     if first:
                         first = False
                         # read = self.spi_dev.spi_read(frame_size + 2)
@@ -231,11 +227,14 @@ class FPGACom:
                     # else:
                     #     read = self.spi_dev.spi_read(frame_size)
                     read = self.spi_dev.spi_read(frame_size)
+                    read_byte_count += frame_size
                     data.extend(read)
                     if not self.mp_running.value:
                         break
-                if self.mp_running.value:
-                    data.extend(self.spi_dev.spi_read(self.mp_batchsize.value * DATA_FRAME_SIZE % frame_size))
+                if batch > read_byte_count and self.mp_running.value:
+                    read = self.spi_dev.spi_read(batch - read_byte_count)
+                    data.extend(read)
+
                 self.spi_dev.set_CS1(False)
                 # print("received data of total length: {}".format(len(data)))
                 # print("first 3 frame: \n{}\n{}\n{}".format(
@@ -371,16 +370,16 @@ class FPGACom:
         return
 
     def update_status(self, status: FPGAStatusStruct):
-        if status.sdram_init_done:
-            self.stat_main2sub_sdram_init_done.put(True)
+        # if status.sdram_init_done:
+        #     self.stat_main2sub_sdram_init_done.put(True, block=False)
         if status.spi_data_ready:
-            self.stat_main2sub_spi_data_ready.put(True)
-        if status.spi_rd_error:
-            self.stat_main2sub_spi_rd_error.put(True)
-        if status.sdram_overlap:
-            self.stat_main2sub_sdram_overlap.put(True)
-        if status.pll_ready:
-            self.stat_main2sub_pll_ready.put(True)
+            self.stat_main2sub_spi_data_ready.put(True, block=False)
+        # if status.spi_rd_error:
+        #     self.stat_main2sub_spi_rd_error.put(True, block=False)
+        # if status.sdram_overlap:
+        #     self.stat_main2sub_sdram_overlap.put(True, block=False)
+        # if status.pll_ready:
+        #     self.stat_main2sub_pll_ready.put(True, block=False)
 
     def start(self):
         self.mp_live.value = True  # start signal

@@ -16,6 +16,27 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="icy@i2cy.tech:2200 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="icy@i2cy.tech:2200 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="icy@i2cy.tech:2200 password (3)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="icy@i2cy.tech:2203 password">
         <serverdata>
           <mappings>

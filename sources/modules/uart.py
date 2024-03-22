@@ -8,11 +8,11 @@
 import threading
 import time
 import serial
-from .debug import DEBUG
 
 GPS_DEVICE = "/dev/ttyACM0"
 GPS_BR = 9600
 
+DEBUG = True
 
 class Degree:
 
@@ -142,6 +142,8 @@ class GPS:
     def _receiver(self):
         while self.__live:
             raw = self.read_raw()
+            if DEBUG:
+                print("read raw: {}".format(raw))
             if len(raw) < 6:
                 continue
             else:
