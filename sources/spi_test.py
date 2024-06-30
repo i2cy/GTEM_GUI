@@ -26,9 +26,9 @@ if __name__ == '__main__':
     print("setting output file: {}".format(TEST_FILENAME))
     com.set_output_file(TEST_FILENAME)
 
-    print("setting sample rate: 100K")
-    ctl.set_sample_rate_level(0xc)
-    com.set_batch_size(0xc)
+    print("setting sample rate: 1K")
+    ctl.set_sample_rate_level(0x02)
+    com.set_batch_size(0x02)
 
     print("setting amp rate: x1")
     ctl.set_amp_rate_of_channels("0", "0", "0")
@@ -80,20 +80,20 @@ if __name__ == '__main__':
                     bytes((chunk[0],)).hex(), bytes((headers[ch_n],)).hex(), ch_n + 1, n + 1, (n + 1) * 3 * 32
                 ))
 
-            # if num != n + 1:
-            #     err_log.append("invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
-            #         chunk[1:].hex(), (n + 1).to_bytes(3, byteorder='big', signed=False).hex(),
-            #         ch_n + 1, n + 1, (n + 1) * 3 * 32
-            #     ))
+            if num != n + 1:
+                err_log.append("invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+                    chunk[1:].hex(), (n + 1).to_bytes(3, byteorder='big', signed=False).hex(),
+                    ch_n + 1, n + 1, (n + 1) * 3 * 32
+                ))
                 no_err = False
 
-            if num != 0x5aa55a:
-                err_log.append(
-                    "invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
-                        chunk[1:].hex(), (0x5aa55a).to_bytes(3, byteorder='big', signed=False).hex(),
-                        ch_n + 1, n + 1, (n + 1) * 3 * 32
-                    ))
-                no_err = False
+            # if num != 0x5aa55a:
+            #     err_log.append(
+            #         "invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+            #             chunk[1:].hex(), (0x5aa55a).to_bytes(3, byteorder='big', signed=False).hex(),
+            #             ch_n + 1, n + 1, (n + 1) * 3 * 32
+            #         ))
+            #     no_err = False
 
         if not no_err:
             err_frame_n += 1

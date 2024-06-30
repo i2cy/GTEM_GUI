@@ -182,7 +182,7 @@ class FPGACom:
     def proc_spi_receiver(self):
         # initialize CH347 communication interface
         self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
-        self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=2)
+        self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=3)
 
         # initialize FPGA status report
         # fpga_stat = FPGAStat("/dev/i2c-2", self.mp_debug.value)
@@ -219,20 +219,28 @@ class FPGACom:
                 for i in range(batch // frame_size):
                     if first:
                         first = False
-                        # read = self.spi_dev.spi_read(frame_size + 2)
-                        # print("CS header: 0x{}".format(bytes(read[0:2])))
-                        self.spi_dev.spi_write(b"\xaa\xaa")
+                        read = self.spi_dev.spi_read(frame_size + 2)
+                        print("CS header: 0x{}".format(bytes(read[0:2])))
+                        # self.spi_dev.spi_write(b"\xaa\xaa")
 
-                    #     read = read[2:]
-                    # else:
-                    #     read = self.spi_dev.spi_read(frame_size)
-                    read = self.spi_dev.spi_read(frame_size)
+                        read = read[2:]
+                    else:
+                        read = self.spi_dev.spi_read(frame_size)
+                    # read = self.spi_dev.spi_read(frame_size)
                     read_byte_count += frame_size
                     data.extend(read)
                     if not self.mp_running.value:
                         break
                 if batch > read_byte_count and self.mp_running.value:
-                    read = self.spi_dev.spi_read(batch - read_byte_count)
+                    if first:
+                        first = False
+                        read = self.spi_dev.spi_read(batch - read_byte_count + 2)
+                        print("CS header: 0x{}".format(bytes(read[0:2])))
+                        # self.spi_dev.spi_write(b"\xaa\xaa")
+
+                        read = read[2:]
+                    else:
+                        read = self.spi_dev.spi_read(batch - read_byte_count)
                     data.extend(read)
 
                 self.spi_dev.set_CS1(False)
