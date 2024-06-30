@@ -25,8 +25,8 @@ from modules.gtem import Gtem24File, Gtem24
 from modules.graphic import init_graph
 from modules.globals import *
 from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread, GPSUpdaterThread, DataUpdaterThread
-from modules.spi import FPGACtl, FPGAStat, FPGACom
-from modules.i2c import BandWidthCtl, AmpRateCtl
+# from modules.spi import FPGACtl, FPGAStat, FPGACom
+# from modules.i2c import BandWidthCtl, AmpRateCtl
 from modules.debug import DEBUG
 
 TEST = True
@@ -388,10 +388,10 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.label_filenameHeader_2.setVisible(False)
 
         # FPGA communication
-        self.fpga_ctl = FPGACtl(I2C_BUS)
-        self.fpga_com = FPGACom(to_file_only=DECOY, ctl=self.fpga_ctl, debug=True)
+        # self.fpga_ctl = FPGACtl(I2C_BUS)
+        # self.fpga_com = FPGACom(to_file_only=DECOY, ctl=self.fpga_ctl, debug=True)
 
-        self.fpga_com.start()
+        # self.fpga_com.start()
 
         # GPS communication
         self.gps_error_count = 0
@@ -409,11 +409,11 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.data_Ticker.timeout.connect(self.doUpdateData)
 
         # controls of serial to parallel chips
-        self.bandwidth_ctl = BandWidthCtl(I2C_BUS, 0x20, 0x21, 0x23)
-        self.amp_ctl = AmpRateCtl(I2C_BUS, 0x74)
+        # self.bandwidth_ctl = BandWidthCtl(I2C_BUS, 0x20, 0x21, 0x23)
+        # self.amp_ctl = AmpRateCtl(I2C_BUS, 0x74)
 
         # initialized signal
-        self.amp_ctl.set_LED(True, True, True, True)
+        # self.amp_ctl.set_LED(True, True, True, True)
 
         # timer
         self.record_start_ts = 0
@@ -502,38 +502,38 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtPlotWeight_ch3.setXRange(*REAL_TIME_PLOT_XRANGES)
 
         # load FPGA configuration
-        self.fpga_ctl.enable_channels(self.comboBox_ch1BandWidth.currentText() != '闭合',
-                                      self.comboBox_ch2BandWidth.currentText() != '闭合',
-                                      self.comboBox_ch3BandWidth.currentText() != '闭合')
-        self.fpga_ctl.set_sample_rate_level(self.comboBox_sampleRate.currentIndex())
-        self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentText(),
-                                               self.comboBox_ch2Amp.currentText(),
-                                               self.comboBox_ch3Amp.currentText())
+        # self.fpga_ctl.enable_channels(self.comboBox_ch1BandWidth.currentText() != '闭合',
+        #                               self.comboBox_ch2BandWidth.currentText() != '闭合',
+        #                               self.comboBox_ch3BandWidth.currentText() != '闭合')
+        # self.fpga_ctl.set_sample_rate_level(self.comboBox_sampleRate.currentIndex())
+        # self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentText(),
+        #                                        self.comboBox_ch2Amp.currentText(),
+        #                                        self.comboBox_ch3Amp.currentText())
 
         # load filename
         filename = self.staticGenerateFilename()
         abs_path = f"{MOUNT_PATH}/{filename}.bin"
-        self.fpga_com.set_output_file(abs_path)
+        # self.fpga_com.set_output_file(abs_path)
 
         # set amp rate
-        self.amp_ctl.set_amp_rate(
-            self.comboBox_ch1Amp.currentText(),
-            self.comboBox_ch2Amp.currentText(),
-            self.comboBox_ch3Amp.currentText(),
-            update=False
-        )
-        self.amp_ctl.set_LED(False, False, False, False, update=True)
+        # self.amp_ctl.set_amp_rate(
+        #     self.comboBox_ch1Amp.currentText(),
+        #     self.comboBox_ch2Amp.currentText(),
+        #     self.comboBox_ch3Amp.currentText(),
+        #     update=False
+        # )
+        # self.amp_ctl.set_LED(False, False, False, False, update=True)
 
         # set bandwidth
-        self.bandwidth_ctl.set_bandwidth(
-            self.comboBox_ch1BandWidth.currentText(),
-            self.comboBox_ch2BandWidth.currentText(),
-            self.comboBox_ch3BandWidth.currentText(),
-        )
+        # self.bandwidth_ctl.set_bandwidth(
+        #     self.comboBox_ch1BandWidth.currentText(),
+        #     self.comboBox_ch2BandWidth.currentText(),
+        #     self.comboBox_ch3BandWidth.currentText(),
+        # )
 
         # start FPGA
-        self.fpga_com.open()
-        self.fpga_ctl.start_FPGA()
+        # self.fpga_com.open()
+        # self.fpga_ctl.start_FPGA()
 
         # update filename display
         self.label_titleFilenameHeader.setVisible(True)
@@ -558,8 +558,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.flag_recording = False
 
         # stop FPGA
-        self.fpga_com.close()
-        self.fpga_ctl.stop_FPGA()
+        # self.fpga_com.close()
+        # self.fpga_ctl.stop_FPGA()
 
         # stop data update
         self.data_Ticker.stop()
@@ -636,17 +636,18 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             self.toolButton_startRecording.setEnabled(False)
 
         # update GPS
-        fpga_status = self.fpga_ctl.read_status()
-        if self.gps_updater.gps_status and fpga_status.sdram_init_done:
-            self.toolButton_startRecording.setEnabled(True)
-            self.gps_error_count = 0
-        else:
-            if self.gps_error_count > 3 or not fpga_status.sdram_init_done:
-                if self.flag_recording:
-                    self.actionStopRecording()
-                self.toolButton_startRecording.setEnabled(False)
-            else:
-                self.gps_error_count += 1
+        # fpga_status = self.fpga_ctl.read_status()
+        # if self.gps_updater.gps_status and fpga_status.sdram_init_done:
+        #     self.toolButton_startRecording.setEnabled(True)
+        #     self.gps_error_count = 0
+        # else:
+        #     if self.gps_error_count > 3 or not fpga_status.sdram_init_done:
+        #         if self.flag_recording:
+        #             self.actionStopRecording()
+        #         self.toolButton_startRecording.setEnabled(False)
+        #     else:
+        #         self.gps_error_count += 1
+        self.toolButton_startRecording.setEnabled(True)
 
         # update timer
         if self.flag_recording:
@@ -687,7 +688,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
     def doUpdateRealTimeGraph(self):
 
         # blink LED
-        self.amp_ctl.set_LED(not self.amp_ctl.leds[0])
+        # self.amp_ctl.set_LED(not self.amp_ctl.leds[0])
 
         if self.stackedWidget_topBar.currentIndex() != 0 or self.real_time_graph_updater.isRunning():
             return
@@ -843,7 +844,7 @@ if __name__ == '__main__':
     extco = app.exec_()
     live = False
 
-    ui.fpga_com.kill()
+    # ui.fpga_com.kill()
 
     # if TEST:
     #     t.join()

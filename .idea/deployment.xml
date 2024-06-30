@@ -51,6 +51,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="orangepi@127.0.0.1:2301 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="orangepi@i2cy.tech:2207 password">
         <serverdata>
           <mappings>
@@ -68,7 +75,7 @@
       <paths name="pi@127.0.0.1:2300 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/pi/gtem" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

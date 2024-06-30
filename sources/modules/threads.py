@@ -158,9 +158,9 @@ class DataUpdaterThread(QThread):
         self.ts_zero = 0.0
         self.timestamp = 0.0
         self.dt_i = 1 / int(self.parent.comboBox_sampleRate.currentText())
-        self.fifo_ch1: Queue = self.parent.fpga_com.mp_ch1_data_queue_x4
-        self.fifo_ch2: Queue = self.parent.fpga_com.mp_ch2_data_queue_x4
-        self.fifo_ch3: Queue = self.parent.fpga_com.mp_ch3_data_queue_x4
+        # self.fifo_ch1: Queue = self.parent.fpga_com.mp_ch1_data_queue_x4
+        # self.fifo_ch2: Queue = self.parent.fpga_com.mp_ch2_data_queue_x4
+        # self.fifo_ch3: Queue = self.parent.fpga_com.mp_ch3_data_queue_x4
 
         self.last_batch_timestamp_start = 0.0
 
@@ -182,7 +182,7 @@ class DataUpdaterThread(QThread):
         if tp > CLIP_TIME_SEC:
             filename = self.parent.staticGenerateFilename()
             abs_path = f"{MOUNT_PATH}/{filename}.bin"
-            self.parent.fpga_com.set_output_file(abs_path)
+            # self.parent.fpga_com.set_output_file(abs_path)
             abs_path = f"{MOUNT_PATH}/{filename}_gps.txt"
             self.parent.gps_updater.gps.set_gps_file(abs_path)
             self.ts_zero = ts
