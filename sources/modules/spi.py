@@ -128,10 +128,12 @@ class FPGACom:
         0--500  1--1k   2--2k   3--4k   4--8k   5--10k  6--20k  7--32k
         8--40k  9--80k  A--25k  B--50k  C--100k D--200k E--400k F--800k
         """
-        __comvert_list = (2048 * 2, 4096 * 2, 8192 * 2, 16384 * 2, 32768 * 2, 32768 * 2, 65536 * 2, 131072 * 2,
-                          131072 * 2, 262144 * 2, 65536 * 2, 524288 * 2, 1048576 * 2, 2097152 * 2, 4194304 * 2,
-                          8388608 * 2)
-        self.mp_batchsize.value = __comvert_list[sample_rate_level]
+        __convert_list = (2048, 4096, 8192, 16384, 32768, 32768, 65536, 131072,
+                          131072, 262144, 65536, 131072, 262144, 524288, 1048576, 2097152)
+
+        # __convert_list = [4096 * 2 for ele in range(16)]
+
+        self.mp_batchsize.value = __convert_list[sample_rate_level] * 2
 
     def thr_status_update_thread(self):
         if self.mp_debug.value:
@@ -192,12 +194,12 @@ class FPGACom:
         if self.mp_debug.value:
             print("\nproc_spi_receiver started")
 
-        first = False
+        # first = False
 
         while self.mp_live.value:
             if not self.mp_running.value:  # 待机状态
                 time.sleep(0.001)
-                first = True
+                # first = True
                 continue
 
             try:
@@ -233,15 +235,15 @@ class FPGACom:
                     if not self.mp_running.value:
                         break
                 if batch > read_byte_count and self.mp_running.value:
-                    if first:
-                        first = False
-                        read = self.spi_dev.spi_read(batch - read_byte_count + 2)
-                        print("CS header: 0x{}".format(bytes(read[0:2])))
-                        # self.spi_dev.spi_write(b"\xaa\xaa")
-
-                        read = read[2:]
-                    else:
-                        read = self.spi_dev.spi_read(batch - read_byte_count)
+                    # if first:
+                    #     first = False
+                    #     read = self.spi_dev.spi_read(batch - read_byte_count + 2)
+                    #     print("CS header: 0x{}".format(bytes(read[0:2])))
+                    #     # self.spi_dev.spi_write(b"\xaa\xaa")
+                    #
+                    #     read = read[2:]
+                    # else:
+                    read = self.spi_dev.spi_read(batch - read_byte_count)
                     data.extend(read)
 
                 self.spi_dev.set_CS1(False)

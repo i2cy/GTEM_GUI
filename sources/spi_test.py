@@ -13,7 +13,6 @@ TEST_FILENAME = "test.bin"
 
 LIVE = True
 
-
 if __name__ == '__main__':
     print("initializing FPGA controller")
     ctl = FPGACtl("/dev/i2c-2", debug=True)
@@ -27,9 +26,13 @@ if __name__ == '__main__':
     print("setting output file: {}".format(TEST_FILENAME))
     com.set_output_file(TEST_FILENAME)
 
-    print("setting sample rate: 50K")
-    ctl.set_sample_rate_level(0x0b)
-    com.set_batch_size(0x0b)
+    convert_sheet = ["500", "1K", "2K", "4K", "8K", "10K", "20K", "32K",
+                     "40K", "80K", "25K", "50K", "100K", "200K", "400K", "800K"]
+
+    sample_rate = 0x01
+    print("setting sample rate: {}".format(convert_sheet[sample_rate]))
+    ctl.set_sample_rate_level(sample_rate)
+    com.set_batch_size(sample_rate)
 
     print("setting amp rate: x1")
     ctl.set_amp_rate_of_channels("0", "0", "0")
@@ -57,7 +60,7 @@ if __name__ == '__main__':
     print("first 6 frames of data:")
     print("   CH1      CH2      CH3")
     for i in range(6):
-        print("  ", f.read(4).hex(), f.read(4).hex(), f.read(4).hex())
+        print("  ", f.read(3).hex(), f.read(3).hex(), f.read(3).hex())
 
     f.seek(0)
     print("verifying data collected")
@@ -69,23 +72,24 @@ if __name__ == '__main__':
     while not EXIT:
         no_err = True
         for ch_n in range(3):
-            chunk = f.read(4)
-            if len(chunk) < 4:
+            chunk = f.read(3)
+            if len(chunk) < 3:
                 EXIT = True
                 break
 
-            num = int().from_bytes(chunk[1:], byteorder='big', signed=False)
+            num = int().from_bytes(chunk, byteorder='big', signed=False)
 
-            if chunk[0] != headers[ch_n]:
-                err_log.append("invalid header 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
-                    bytes((chunk[0],)).hex(), bytes((headers[ch_n],)).hex(), ch_n + 1, n + 1, (n + 1) * 3 * 32
-                ))
+            # if chunk[0] != headers[ch_n]:
+            #     err_log.append("invalid header 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+            #         bytes((chunk[0],)).hex(), bytes((headers[ch_n],)).hex(), ch_n + 1, n + 1, (n + 1) * 3 * 32
+            #     ))
 
             if num != n + 1:
-                err_log.append("invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
-                    chunk[1:].hex(), (n + 1).to_bytes(3, byteorder='big', signed=False).hex(),
-                    ch_n + 1, n + 1, (n + 1) * 3 * 32
-                ))
+                err_log.append(
+                    "invalid channel data 0x{} (should be 0x{}) at ch{} in frame NO.{} ({} clocks) detected".format(
+                        chunk.hex(), (n + 1).to_bytes(3, byteorder='big', signed=False).hex(),
+                        ch_n + 1, n + 1, (n + 1) * 3 * 32
+                    ))
                 no_err = False
 
             # if num != 0x5aa55a:
@@ -103,8 +107,9 @@ if __name__ == '__main__':
 
     f.close()
 
-    print("{} errs detected in total {} frames, {} err frames, rate of error: {}, detailed information shown below: ".format(
-        len(err_log), n, err_frame_n, 100*err_frame_n/n))
+    print(
+        "{} errs detected in total {} frames, {} err frames, rate of error: {}, detailed information shown below: ".format(
+            len(err_log), n, err_frame_n, 100 * err_frame_n / n))
 
     if len(err_log) < 20:
         for i, ele in enumerate(err_log):
