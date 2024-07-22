@@ -23,6 +23,8 @@ else:
 
 SPI_SPEED = SPIClockFreq.f_30M
 
+SPI_MODE = 0
+
 
 def __test_unit_generate_frame(num):
     header = [0x5a, 0xa5]
@@ -56,8 +58,6 @@ SPI_DEV = (1, 0)
 MAX_FREQ = 48_000_000
 BITS_PER_WORD = 8
 SPI_MODE = 0b00
-
-DATA_FRAME_SIZE = 3 * 4
 
 
 class FPGACom:
@@ -128,8 +128,9 @@ class FPGACom:
         0--500  1--1k   2--2k   3--4k   4--8k   5--10k  6--20k  7--32k
         8--40k  9--80k  A--25k  B--50k  C--100k D--200k E--400k F--800k
         """
-        __comvert_list = (500, 1_000, 2_000, 4_000, 8_000, 10_000, 20_000, 32_000,
-                          40_000, 80_000, 25_000, 50_000, 100_000, 200_000, 400_000, 800_000)
+        __comvert_list = (2048 * 2, 4096 * 2, 8192 * 2, 16384 * 2, 32768 * 2, 32768 * 2, 65536 * 2, 131072 * 2,
+                          131072 * 2, 262144 * 2, 65536 * 2, 524288 * 2, 1048576 * 2, 2097152 * 2, 4194304 * 2,
+                          8388608 * 2)
         self.mp_batchsize.value = __comvert_list[sample_rate_level]
 
     def thr_status_update_thread(self):
@@ -182,7 +183,7 @@ class FPGACom:
     def proc_spi_receiver(self):
         # initialize CH347 communication interface
         self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
-        self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=3)
+        self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=SPI_MODE)
 
         # initialize FPGA status report
         # fpga_stat = FPGAStat("/dev/i2c-2", self.mp_debug.value)
@@ -191,7 +192,7 @@ class FPGACom:
         if self.mp_debug.value:
             print("\nproc_spi_receiver started")
 
-        first = True
+        first = False
 
         while self.mp_live.value:
             if not self.mp_running.value:  # 待机状态
@@ -215,18 +216,18 @@ class FPGACom:
                 data = []
                 self.spi_dev.set_CS1()
                 read_byte_count = 0
-                batch = self.mp_batchsize.value * DATA_FRAME_SIZE
+                batch = self.mp_batchsize.value
                 for i in range(batch // frame_size):
-                    if first:
-                        first = False
-                        read = self.spi_dev.spi_read(frame_size + 2)
-                        print("CS header: 0x{}".format(bytes(read[0:2])))
-                        # self.spi_dev.spi_write(b"\xaa\xaa")
-
-                        read = read[2:]
-                    else:
-                        read = self.spi_dev.spi_read(frame_size)
-                    # read = self.spi_dev.spi_read(frame_size)
+                    # if first:
+                    #     first = False
+                    #     read = self.spi_dev.spi_read(frame_size + 2)
+                    #     print("CS header: 0x{}".format(bytes(read[0:2])))
+                    #     # self.spi_dev.spi_write(b"\xaa\xaa")
+                    #
+                    #     read = read[2:]
+                    # else:
+                    #     read = self.spi_dev.spi_read(frame_size)
+                    read = self.spi_dev.spi_read(frame_size)
                     read_byte_count += frame_size
                     data.extend(read)
                     if not self.mp_running.value:
@@ -281,6 +282,12 @@ class FPGACom:
 
         t_debug = time.time()
         filename = ""
+        # calculate channel info bytes
+        ch_addon = [
+            (self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1,
+            (self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1,
+            (self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1
+        ]
 
         while self.mp_live.value:
             if not self.mp_running.value:  # 待机状态
@@ -297,6 +304,7 @@ class FPGACom:
                     try:
                         filename = self.mp_set_filename.get(timeout=0.5)
                         print("set spi filename:", filename)
+
                         break
                     except Empty:
                         continue
@@ -317,6 +325,7 @@ class FPGACom:
             byte_array = bytes(frame)
 
             if self.mp_swapping_file.value:
+                # swapping file (which means they have started a new data retrieve command)
                 while self.mp_live.value:
                     try:
                         filename = self.mp_set_filename.get(timeout=0.5)
@@ -327,7 +336,14 @@ class FPGACom:
                 file_io.close()
                 file_io = open(filename, "wb")
                 self.mp_swapping_file.value = False
+                # calculate channel info bytes
+                ch_addon = [
+                    (self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1,
+                    (self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1,
+                    (self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1
+                ]
 
+            # TODO: make sure channel addon bytes wrote into the file
             file_io.write(byte_array)  # write to file in sub process
 
             dt = np.dtype(np.uint32)

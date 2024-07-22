@@ -13,6 +13,7 @@ TEST_FILENAME = "test.bin"
 
 LIVE = True
 
+
 if __name__ == '__main__':
     print("initializing FPGA controller")
     ctl = FPGACtl("/dev/i2c-2", debug=True)
@@ -26,9 +27,9 @@ if __name__ == '__main__':
     print("setting output file: {}".format(TEST_FILENAME))
     com.set_output_file(TEST_FILENAME)
 
-    print("setting sample rate: 1K")
-    ctl.set_sample_rate_level(0x02)
-    com.set_batch_size(0x02)
+    print("setting sample rate: 50K")
+    ctl.set_sample_rate_level(0x0b)
+    com.set_batch_size(0x0b)
 
     print("setting amp rate: x1")
     ctl.set_amp_rate_of_channels("0", "0", "0")

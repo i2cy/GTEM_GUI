@@ -7,7 +7,9 @@
 
 import wiringpi as wpi
 from pydantic import BaseModel
+from multiprocessing import Process, Value
 import time
+from ctypes import c_bool, c_int, c_char_p
 
 USE_CH347 = True
 
@@ -382,7 +384,14 @@ class FPGACtl:
         # 0-16
         self.chn_amp_rate_level = [0, 0, 0]
 
-        self.__amp_rate_sheet = {
+        self.mp_ch1_amp_rate = Value(c_int, 0)
+        self.mp_ch2_amp_rate = Value(c_int, 0)
+        self.mp_ch3_amp_rate = Value(c_int, 0)
+        self.ch1_is_open = Value(c_bool, 0)
+        self.ch2_is_open = Value(c_bool, 0)
+        self.ch3_is_open = Value(c_bool, 0)
+
+        self.amp_rate_sheet = {
             "0": 0b0000,
             "1": 0b0011,
             "2": 0b0100,
@@ -400,6 +409,7 @@ class FPGACtl:
 
         self.cr_cnv_sly_cnt = 2
         self.cr_cnv_800k_cnt = 125
+        self.cr_fifo_clr = False
 
         self.stat_sdram_overlap = False
         self.stat_spi_rd_error = False
@@ -424,7 +434,7 @@ class FPGACtl:
 
         reg01_payload = [(self.chn_amp_rate_level[1] % 16 << 4) | (self.chn_amp_rate_level[2] % 16), 0x00]
 
-        reg02_payload = [self.flag_reset << 7 | self.debug << 6 | self.cr_cnv_sly_cnt,
+        reg02_payload = [self.flag_reset << 7 | self.debug << 6 | self.cr_fifo_clr << 5 | self.cr_cnv_sly_cnt,
                          self.cr_cnv_800k_cnt]
 
         # if self.debug:
@@ -432,12 +442,12 @@ class FPGACtl:
         #     print("reg01_command: {}".format(bytes(reg01_payload).hex()))
         #     print("reg02_command: {}".format(bytes(reg02_payload).hex()))
 
-        if not reset:
+        if not reset:  # update normally
             # write reg00
             payload = int().from_bytes(reg00_payload, "little", signed=False)
             wpi.wiringPiI2CWriteReg16(self.interface_fd, 0x00, payload)
 
-            if not start:
+            if not start:  # update normally
                 # write reg01
                 payload = int().from_bytes(reg01_payload, "little", signed=False)
                 wpi.wiringPiI2CWriteReg16(self.interface_fd, 0x01, payload)
@@ -448,14 +458,13 @@ class FPGACtl:
             #     print("reg00_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x00))))
             #     print("reg01_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x01))))
 
-        if not start:
+        if not start:  # update normally
             # write reg02
             payload = int().from_bytes(reg02_payload, "little", signed=False)
             wpi.wiringPiI2CWriteReg16(self.interface_fd, 0x02, payload)
 
         # if self.debug:
         #     print("reg02_verify: {}".format(hex(wpi.wiringPiI2CReadReg16(self.interface_fd, 0x02))))
-
 
     def start_FPGA(self):
         """
@@ -471,7 +480,11 @@ class FPGACtl:
             time.sleep(0.02)
 
         self.fpga_is_open = False
+        self.cr_fifo_clr = True  # hold cr fifo clr from 0 to 1 for 10ms
         self.__update_regs()
+        time.sleep(0.01)  # wait approximately 10 ms
+        self.cr_fifo_clr = False
+        self.__update_regs(reset=True)
 
         self.fpga_is_open = True
         self.__update_regs(start=True)
@@ -514,9 +527,14 @@ class FPGACtl:
         :param ch3_amp: str
         :return:
         """
-        self.chn_amp_rate_level[0] = self.__amp_rate_sheet[ch1_amp]
-        self.chn_amp_rate_level[1] = self.__amp_rate_sheet[ch2_amp]
-        self.chn_amp_rate_level[2] = self.__amp_rate_sheet[ch3_amp]
+        self.chn_amp_rate_level[0] = self.amp_rate_sheet[ch1_amp]
+        self.chn_amp_rate_level[1] = self.amp_rate_sheet[ch2_amp]
+        self.chn_amp_rate_level[2] = self.amp_rate_sheet[ch3_amp]
+
+        # sync with FPGA_COM
+        self.mp_ch1_amp_rate.value = self.amp_rate_sheet[ch1_amp]
+        self.mp_ch2_amp_rate.value = self.amp_rate_sheet[ch2_amp]
+        self.mp_ch3_amp_rate.value = self.amp_rate_sheet[ch3_amp]
 
     def read_status(self) -> FPGAStatusStruct:
         """
