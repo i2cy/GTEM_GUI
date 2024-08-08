@@ -9,3 +9,4 @@ spidev
 wiringpi
 pydantic
 i2ftps
+i2ftps

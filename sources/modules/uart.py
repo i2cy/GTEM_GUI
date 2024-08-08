@@ -12,7 +12,7 @@ import serial
 GPS_DEVICE = "/dev/ttyACM0"
 GPS_BR = 9600
 
-DEBUG = True
+DEBUG = False
 
 class Degree:
 
@@ -93,7 +93,7 @@ class GPS:
         else:
             raw = self.read_raw(timeout)
 
-            print("GPS DEBUG:", raw)
+            # print("GPS DEBUG:", raw)
 
         if len(raw) < 6:
             return False

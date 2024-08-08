@@ -25,7 +25,7 @@ from modules.gtem import Gtem24File, Gtem24
 from modules.graphic import init_graph
 from modules.globals import *
 from modules.threads import MainGraphUpdaterThread, SecGraphUpdaterThread, GPSUpdaterThread, DataUpdaterThread
-from modules.spi import FPGACtl, FPGAStat, FPGACom
+from modules.spi import FPGACtl, FPGACom
 from modules.i2c import BandWidthCtl, AmpRateCtl
 from modules.debug import DEBUG
 
