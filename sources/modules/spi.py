@@ -208,8 +208,8 @@ class FPGACom:
                 data_ready = False
 
             if data_ready:
-                if self.mp_debug.value:
-                    print("\nspi data ready detected")
+                # if self.mp_debug.value:
+                print("\nspi data ready detected")
             else:
                 continue
 
