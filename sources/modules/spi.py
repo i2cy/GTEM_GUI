@@ -271,89 +271,85 @@ class FPGACom:
         return
 
     def proc_data_process(self):
-        ch1_batch = []
-        ch2_batch = []
-        ch3_batch = []
-        cnt = 0
-
-        file_closed = True
-        file_io = None
-
+        # debug output
         if self.mp_debug.value:
             print("\nproc_data_process started")
 
-        t_debug = time.time()
-        filename = ""
-        # calculate channel info bytes
-        ch_addon = [
-            (self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1,
-            (self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1,
-            (self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1
-        ]
+        # initialize cache list
+        ch1_batch = []
+        ch2_batch = []
+        ch3_batch = []
 
+        # initialize miscellaneous
+        ch_addon = [b"\x00"] * 3
+
+        # initialize counter for batch queue
+        cnt = 0
+
+        # initialize flag
+        file_closed = True
+
+        # preallocate file_io object
+        file_io = None
+
+        # data process loop
         while self.mp_live.value:
-            if not self.mp_running.value:  # 待机状态
+            # while IDLE
+            if not self.mp_running.value:
                 if not file_closed:
                     file_io.close()
                     file_closed = True
                     self.mp_filelock.value = False
                     print("proc_data_process file closed")
                     time.sleep(0.001)
-                continue
+                continue  # keeps IDLE
 
+            # close file_io to replace existed file_io object with a new one when signal of swapping file received
+            if self.mp_swapping_file.value:
+                # close file_io object and set file_closed flag to True
+                file_io.close()
+                file_closed = True
+                self.mp_swapping_file.value = False
+
+            # create new file_io object using a new filename got from set_filename queue when file closed
             if file_closed:
-                while self.mp_live.value:
-                    try:
-                        filename = self.mp_set_filename.get(timeout=0.5)
-                        print("set spi filename:", filename)
+                try:
+                    filename = self.mp_set_filename.get(timeout=0.5)  # get new filename from queue
+                    print("set spi filename:", filename)
+                    file_io = open(filename, "wb")  # open new file io object
+                    file_closed = False  # set file_closed flag value to False
+                    self.mp_filelock.value = True  # enable file object lock
+                    print("\nproc_data_process file opened")
 
-                        break
-                    except Empty:
-                        continue
+                    # calculate info byte of each channel
+                    ch_addon = [
+                        bytes(((self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1), ),
+                        bytes(((self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1), ),
+                        bytes(((self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1), )
+                    ]
+                except Empty:
+                    continue  # repeat this operation until new file_io has been created and opened
 
-                file_io = open(filename, "wb")
-                file_closed = False
-                self.mp_filelock.value = True
-                print("\nproc_data_process file opened")
-
+            # get one small batch of data from raw_data_queue
             try:
                 frame = self.mp_raw_data_queue.get(timeout=0.5)
+                if not len(frame):
+                    continue  # make sure the one small batch is not empty
             except Empty:
-                continue
+                continue  # repeat this operation until one small batch data got
 
-            if not len(frame):
-                continue
-
+            # convert iterable data to byte array
             byte_array = bytes(frame)
 
-            if self.mp_swapping_file.value:
-                # swapping file (which means they have started a new data retrieve command)
-                while self.mp_live.value:
-                    try:
-                        filename = self.mp_set_filename.get(timeout=0.5)
-                        print("set spi filename:", filename)
-                        break
-                    except Empty:
-                        continue
-                file_io.close()
-                file_io = open(filename, "wb")
-                self.mp_swapping_file.value = False
-                # calculate channel info bytes
-                ch_addon = [
-                    (self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1,
-                    (self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1,
-                    (self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1
-                ]
+            # write data to file with 32-bit per channel
+            # data structure (big endian): [uint_8 info_byte, int_24 data_payload]
+            for b_i in range(len(byte_array) // 9):
+                b_st = b_i * 9
+                file_io.write(ch_addon[0] + byte_array[b_st:b_st + 3])  # ch1
+                file_io.write(ch_addon[1] + byte_array[b_st + 3:b_st + 6])  # ch2
+                file_io.write(ch_addon[2] + byte_array[b_st + 6:b_st + 9])  # ch3
 
-            # TODO: make sure channel addon bytes wrote into the file
-            file_io.write(byte_array)  # write to file in sub process
-
-            dt = np.dtype(np.uint32)
-            dt.newbyteorder(">")
-
-            frame = np.frombuffer(byte_array, dtype=dt)
-
-            # print("1", hex(frame[0]))
+            # TODO: optimize this loop (remember that all operations need comment)
 
             frame = np.array([int().from_bytes(
                 int(ele).to_bytes(4, "little", signed=False)[1:4],
