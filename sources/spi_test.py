@@ -30,7 +30,7 @@ if __name__ == '__main__':
     convert_sheet = ["500", "1K", "2K", "4K", "8K", "10K", "20K", "32K",
                      "40K", "80K", "25K", "50K", "100K", "200K", "400K", "800K"]
 
-    sample_rate = 0x0c
+    sample_rate = 0x0d
     print("setting sample rate: {}".format(convert_sheet[sample_rate]))
     ctl.set_sample_rate_level(sample_rate)
     com.set_batch_size(sample_rate)
@@ -56,12 +56,12 @@ if __name__ == '__main__':
 
     print("file saved in \"{}\"".format(TEST_FILENAME))
 
-    # f = open(TEST_FILENAME, "rb")
-    #
-    # print("first 6 frames of data:")
-    # print("   CH1      CH2      CH3")
-    # for i in range(6):
-    #     print("  ", f.read(3).hex(), f.read(3).hex(), f.read(3).hex())
+    f = open(TEST_FILENAME, "rb")
+
+    print("first 6 frames of data:")
+    print("   CH1      CH2      CH3")
+    for i in range(6):
+        print("  ", f.read(4).hex(), f.read(4).hex(), f.read(4).hex())
     #
     # f.seek(0)
     # print("verifying data collected")
