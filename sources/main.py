@@ -685,9 +685,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtPlotWeight_ch3.setRange(xRange=REAL_TIME_PLOT_XRANGES, padding=0)
 
     def doUpdateRealTimeGraph(self):
-
         # blink LED
-        self.amp_ctl.set_LED(not self.amp_ctl.leds[0])
+        # self.amp_ctl.set_LED(not self.amp_ctl.leds[0])
 
         if self.stackedWidget_topBar.currentIndex() != 0 or self.real_time_graph_updater.isRunning():
             return

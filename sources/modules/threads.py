@@ -174,7 +174,7 @@ class DataUpdaterThread(QThread):
         self.ts_zero = 0.0
 
     def run(self):
-        self.parent.amp_ctl.set_LED(led3=not self.parent.amp_ctl.leds[2])
+        # self.parent.amp_ctl.set_LED(led3=not self.parent.amp_ctl.leds[2])
 
         # file clip
         ts = time.time()
@@ -257,8 +257,7 @@ class MainGraphUpdaterThread(QThread):
         self.last_render_range = (REAL_TIME_PLOT_XRANGES, REAL_TIME_PLOT_YRANGES)
 
     def update_graph(self):
-        self.parent.amp_ctl.set_LED(led2=True)
-
+        # self.parent.amp_ctl.set_LED(led2=True)
         tab_index = self.parent.tabWidget_channelGraph.currentIndex()
 
         if tab_index == 1:  # ch1 args
@@ -343,10 +342,10 @@ class MainGraphUpdaterThread(QThread):
         except Exception as err:
             print(f"range err, {self.last_render_range}")
 
-        self.parent.amp_ctl.set_LED(led2=False)
+        # self.parent.amp_ctl.set_LED(led2=False)
 
     def run(self):
-        self.parent.amp_ctl.set_LED(led4=True)
+        # self.parent.amp_ctl.set_LED(led4=True)
         # if tab stays in page of real time graph
         sample_rate = int(self.parent.comboBox_sampleRate.currentText())
         emit_rate = int(self.parent.comboBox_radiateFreq.currentText())
@@ -375,4 +374,4 @@ class MainGraphUpdaterThread(QThread):
         dt, data = self.parent.buf_realTime_ch3.getBuf(view_range)
         self.last_rander_data3 = data
 
-        self.parent.amp_ctl.set_LED(led4=False)
+        # self.parent.amp_ctl.set_LED(led4=False)
