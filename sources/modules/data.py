@@ -142,7 +142,8 @@ class TimeBuf(object):
                 self.__data[:self.__index_in] = timestamp[left:]
             except Exception as err:
                 print(
-                    f"time err: index_in: {self.__index_in}, total_data: {batch_length}, data_left: {len(timestamp[left:])}, msg: {err}")
+                    f"time err: index_in: {self.__index_in}, total_data: {batch_length},"
+                    f" data_left: {len(timestamp[left:])}, msg: {err}")
 
 
 class DataBuf(object):

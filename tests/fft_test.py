@@ -25,8 +25,8 @@ def main():
     f = open(filename, "rb")
     frame_num = 0
     while True:
-        data = f.read(9)  # 3B per channel
-        if len(data) != 9:
+        data = f.read(12)  # 4B per channel
+        if len(data) != 12:
             break
         else:
             frame_num += 1
@@ -42,9 +42,9 @@ def main():
     f.seek(0)
 
     for i in range(1000):
-        pre_frames_ch1.append(int().from_bytes(f.read(3), "big", signed=True))
-        pre_frames_ch2.append(int().from_bytes(f.read(3), "big", signed=True))
-        pre_frames_ch3.append(int().from_bytes(f.read(3), "big", signed=True))
+        pre_frames_ch1.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
+        pre_frames_ch2.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
+        pre_frames_ch3.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
 
     print(pre_frames_ch1[:50])
 
@@ -71,9 +71,9 @@ def main():
     for i in tqdm(range(total_seconds), desc="Calculating FFT"):
         # prepare data
         for ele in range(sample_rate):
-            ch1_x.append(int().from_bytes(f.read(3), "big", signed=True))
-            ch2_x.append(int().from_bytes(f.read(3), "big", signed=True))
-            ch3_x.append(int().from_bytes(f.read(3), "big", signed=True))
+            ch1_x.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
+            ch2_x.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
+            ch3_x.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
 
         # fft
         k_dim = sample_rate * total_seconds

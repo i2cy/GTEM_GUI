@@ -12,6 +12,7 @@ import struct
 import numpy as np
 import time
 from queue import Empty, Full
+from queue import Queue as ThreadQueue
 from multiprocessing import Process, Queue, Manager, Value, Array
 import warnings
 import threading
@@ -62,34 +63,51 @@ SPI_MODE = 0b00
 
 class FPGACom:
 
-    def __init__(self, to_file_only: bool = False, ctl: FPGACtl = None, debug=True):
+    def __init__(self, to_file_only: bool = False, ctl: FPGACtl = None, debug=True, multiprocessing=True):
 
         # initialize
         self.to_file_only = to_file_only  # flag disables x4 queues
         self.flag_spi_reading = False  # flag indicates receiver is reading data from SPI
 
-        self.mp_live = Value(c_bool, True)  # life signal for processes
-        self.mp_running = Value(c_bool, False)  # IDLE signal (True - Running, False - IDLE)
-        self.mp_debug = Value(c_bool, debug)  # debug flag
-        self.mp_filelock = Value(c_bool, False)  # file in use flag
-        self.mp_swapping_file = Value(c_bool, False)  # signal for swapping filename
-        self.mp_batchsize = Value(c_int, 200_000)  # batch size of data (corresponding to sample rate)
-        self.mp_set_filename = Queue(1024)  # queue for filename setting
+        # flags
+        self.multiprocessing = multiprocessing
 
-        # signal queues
-        self.stat_main2sub_sdram_init_done = Queue(1024)
-        self.stat_main2sub_spi_data_ready = Queue(1024)
-        self.stat_main2sub_spi_rd_error = Queue(1024)
-        self.stat_main2sub_sdram_overlap = Queue(1024)
-        self.stat_main2sub_pll_ready = Queue(1024)
+        # multiprocessing inits
+        if self.multiprocessing:
+            self.mp_live = Value(c_bool, True)  # life signal for processes
+            self.mp_running = Value(c_bool, False)  # IDLE signal (True - Running, False - IDLE)
+            self.mp_debug = Value(c_bool, debug)  # debug flag
+            self.mp_filelock = Value(c_bool, False)  # file in use flag
+            self.mp_swapping_file = Value(c_bool, False)  # signal for swapping filename
+            self.mp_batchsize = Value(c_int, 200_000)  # batch size of data (corresponding to sample rate)
+            self.mp_set_filename = Queue(1024)  # queue for filename setting
 
-        self.stat_sub2main_read_done = Queue(1024)
+            # signal queues
+            self.stat_main2sub_sdram_init_done = Queue(1024)
+            self.stat_main2sub_spi_data_ready = Queue(1024)
+            self.stat_main2sub_spi_rd_error = Queue(1024)
+            self.stat_main2sub_sdram_overlap = Queue(1024)
+            self.stat_main2sub_pll_ready = Queue(1024)
 
-        # data queues
-        self.mp_raw_data_queue = Queue(200_000_000)
-        self.mp_ch1_data_queue_x4 = Queue(200_000_000 // 4)
-        self.mp_ch2_data_queue_x4 = Queue(200_000_000 // 4)
-        self.mp_ch3_data_queue_x4 = Queue(200_000_000 // 4)
+            self.stat_sub2main_read_done = Queue(1024)
+
+            # data queues
+            self.mp_raw_data_queue = Queue(200_000_000)
+            self.mp_all_data_queue_x4 = Queue(200_000_000 // 4)
+
+        else:
+            # multi-threading inits
+            self.mt_live = True  # life signal for processes
+            self.mt_running = False  # IDLE signal (True - Running, False - IDLE)
+            self.mt_debug = debug  # debug flag
+            self.mt_filelock = False  # file in use flag
+            self.mt_swapping_file = False  # signal for swapping filename
+            self.mt_batchsize = 200_000  # batch size of data (corresponding to sample rate)
+            self.mt_set_filename = ThreadQueue(1024)  # queue for filename setting
+
+            # multi-threading data queues
+            self.mp_raw_data_queue = ThreadQueue(200_000_000)
+            self.mp_all_data_queue_x4 = ThreadQueue(200_000_000 // 4)
 
         # initialize SPI Device and FPGACtl object
         self.spi_dev = None
@@ -109,13 +127,24 @@ class FPGACom:
 
     def set_output_file(self, filename):
         self.output_filename = filename
-        if self.mp_filelock.value:
-            print("swapping file")
-            self.mp_swapping_file.value = True
-            self.mp_set_filename.put(self.output_filename)
-            while self.mp_swapping_file.value:
-                time.sleep(0.001)
-            print("swapping file completed")
+        # if multiprocessing
+        if self.multiprocessing:
+            if self.mp_filelock.value:
+                print("swapping file")
+                self.mp_swapping_file.value = True
+                self.mp_set_filename.put(self.output_filename)
+                while self.mp_swapping_file.value:
+                    time.sleep(0.001)
+                print("swapping file completed")
+        # if multithreading
+        else:
+            if self.mt_filelock:
+                print("swapping file")
+                self.mt_swapping_file = True
+                self.mt_set_filename.put(self.output_filename)
+                while self.mp_swapping_file.value:
+                    time.sleep(0.001)
+                print("swapping file completed")
 
     def set_batch_size(self, sample_rate_level: int):
         """
@@ -125,9 +154,12 @@ class FPGACom:
         __convert_list = (2048, 4096, 8192, 16384, 32768, 32768, 65536, 131072,
                           131072, 262144, 65536, 131072, 262144, 524288, 1048576, 2097152)
 
-        self.mp_batchsize.value = __convert_list[sample_rate_level] * 2
+        if self.multiprocessing:
+            self.mp_batchsize.value = __convert_list[sample_rate_level] * 2
+        else:
+            self.mt_batchsize = __convert_list[sample_rate_level] * 2
 
-    def thr_status_update_thread(self):
+    def thr_mp_status_update_thread(self):
         if self.mp_debug.value:
             print("\nstatus_update_thread started, ts: {:.1f}".format(time.time()))
 
@@ -151,6 +183,7 @@ class FPGACom:
                 # try to get read-done signal from spi receiver
                 try:
                     read_done = self.stat_sub2main_read_done.get(timeout=0.005)
+                    print("read done")
                 except Empty:
                     read_done = False
                 self.flag_spi_reading = not read_done
@@ -160,7 +193,7 @@ class FPGACom:
                 # read FPGA status if spi receiver is not reading
                 status = self.ctl.read_status()
                 # update status flags to multithreading queue
-                self.update_status(status)
+                self.mp_update_status(status)
                 # assume that spi receiver is reading after received spi_data_ready flag
                 if status.spi_data_ready:
                     self.flag_spi_reading = True
@@ -177,8 +210,88 @@ class FPGACom:
         self.stat_main2sub_sdram_overlap.close()
         self.stat_main2sub_pll_ready.close()
 
-        if self.mp_debug.value:
+        if self.mp_debug:
             print("\nstatus_update_thread stopped, ts: {:.1f}".format(time.time()))
+
+        return
+
+    def thr_spi_receiver(self):  # multi-threading receiver
+        # debug output
+        if self.mt_debug:
+            print("\nthr_spi_receiver started, ts: {:.1f}".format(time.time()))
+
+        # initialize CH347 communication interface
+        self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1, enable_device_lock=False)
+        self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=SPI_MODE)
+
+        # locals
+        frame_size = 32756
+
+        # receiver process loop
+        while self.mt_live:
+            # while IDLE
+            if not self.mt_running:
+                time.sleep(0.005)
+                continue
+
+            # reset all flags of status
+            self.ctl.stat_spi_data_ready = False
+            self.ctl.stat_pll_ready = False
+            self.ctl.stat_spi_rd_error = False
+            self.ctl.stat_sdram_overlap = False
+            self.ctl.stat_sdram_init_done = False
+
+            # get spi_data_ready flag from FPGACtl
+            data_ready = self.ctl.read_status().spi_data_ready
+
+            # wait to spi_data_ready to continue
+            if data_ready:
+                print("spi data ready detected, ts: {:.1f}".format(time.time()), end="")
+            else:
+                continue
+
+            # try to read one small batch of data from FPGA using SPI
+            try:
+                # initialize cache list
+                data = []
+                # initialize miscellaneous
+                read_byte_count = 0
+                # enable SPI CS
+                self.spi_dev.set_CS1()
+                print("CS enabled")
+                # get size of batch from multithreading Value
+                batch = self.mt_batchsize
+                print("batch size got: {}".format(batch))
+                # read data 32756 bytes each time
+                for i in range(batch // frame_size):
+                    read = self.spi_dev.spi_read(frame_size)
+                    print(f"read {i}")
+                    read_byte_count += frame_size
+                    data.extend(read)
+                    if not self.mt_running:
+                        break
+                # read remaining data
+                if batch > read_byte_count and self.mt_running:
+                    read = self.spi_dev.spi_read(batch - read_byte_count)
+                    print("read last")
+                    data.extend(read)
+                # disable SPI CS
+                self.spi_dev.set_CS1(False)
+                print("CS disabled")
+                # put data in raw_data_queue for proc_data_process to use
+                try:
+                    self.mp_raw_data_queue.put(data, block=False)
+                except Full:
+                    warnings.warn("mt_raw_data_queue full, ts: {:.1f}".format(time.time()))
+
+            except Exception as err:
+                warnings.warn("[error] spi receiver error, {}, ts: {:.1f}".format(err, time.time()))
+
+        # closing procedure
+        self.spi_dev.reset()
+
+        if self.mt_debug:
+            print("\nthr_spi_receiver stopped, ts: {:.1f}".format(time.time()))
 
         return
 
@@ -188,7 +301,7 @@ class FPGACom:
             print("\nproc_spi_receiver started, ts: {:.1f}".format(time.time()))
 
         # initialize CH347 communication interface
-        self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1)
+        self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1, enable_device_lock=False)
         self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=SPI_MODE)
 
         # locals
@@ -209,7 +322,7 @@ class FPGACom:
 
             # wait to spi_data_ready to continue
             if data_ready:
-                print("\rspi data ready detected, ts: {:.1f}".format(time.time()), end="")
+                print("spi data ready detected, ts: {:.1f}".format(time.time()), end="")
             else:
                 continue
 
@@ -221,24 +334,35 @@ class FPGACom:
                 read_byte_count = 0
                 # enable SPI CS
                 self.spi_dev.set_CS1()
+                print("CS enabled")
                 # get size of batch from multithreading Value
                 batch = self.mp_batchsize.value
+                print("batch size got: {}".format(batch))
                 # read data 32756 bytes each time
                 for i in range(batch // frame_size):
                     read = self.spi_dev.spi_read(frame_size)
-                    read_byte_count += frame_size
+                    print(f"read size {len(read)}, {i}")
+                    read_byte_count += len(read)
                     data.extend(read)
                     if not self.mp_running.value:
                         break
                 # read remaining data
-                if batch > read_byte_count and self.mp_running.value:
-                    read = self.spi_dev.spi_read(batch - read_byte_count)
+                while batch > read_byte_count and self.mp_running.value:
+                    remains = batch - read_byte_count
+                    if remains > frame_size:
+                        read = self.spi_dev.spi_read(frame_size)
+                    else:
+                        read = self.spi_dev.spi_read(remains)
+                    read_byte_count += len(read)
+                    print(f"read last size {len(read)}")
                     data.extend(read)
+
                 # disable SPI CS
                 self.spi_dev.set_CS1(False)
+                print("CS disabled")
                 # put data in raw_data_queue for proc_data_process to use
                 try:
-                    self.mp_raw_data_queue.put(data)
+                    self.mp_raw_data_queue.put(data, block=False)
                 except Full:
                     warnings.warn("mp_raw_data_queue full, ts: {:.1f}".format(time.time()))
 
@@ -246,6 +370,7 @@ class FPGACom:
                 warnings.warn("[error] spi receiver error, {}, ts: {:.1f}".format(err, time.time()))
 
             # inform thr_status_update_thread that receiver has done reading
+            print("read done sent")
             self.stat_sub2main_read_done.put(True)
 
         # closing procedure
@@ -254,6 +379,131 @@ class FPGACom:
 
         if self.mp_debug.value:
             print("\nproc_spi_receiver stopped, ts: {:.1f}".format(time.time()))
+
+        return
+
+    def thr_data_process(self):
+        # debug output
+        if self.mt_debug:
+            print("\nthr_data_process started, ts: {:.1f}".format(time.time()))
+
+        # initialize cache list (A/B list), and swap flag
+        ch1_batch_a = []
+        ch2_batch_a = []
+        ch3_batch_a = []
+        ch1_batch_b = []
+        ch2_batch_b = []
+        ch3_batch_b = []
+        batch_is_a = True
+
+        # initialize miscellaneous
+        ch_addon = [b"\x00"] * 3
+
+        # initialize counter for batch queue
+        cnt = 0
+
+        # initialize flag
+        file_closed = True
+
+        # preallocate file_io object
+        file_io = None
+
+        # data process loop
+        while self.mt_live:
+            # while IDLE
+            if not self.mt_running:
+                if not file_closed:
+                    file_io.close()
+                    file_closed = True
+                    self.mt_filelock = False
+                    print("proc_data_process file closed, ts: {:.1f}".format(time.time()))
+                time.sleep(0.02)
+                continue  # keeps IDLE
+
+            # close file_io to replace existed file_io object with a new one when signal of swapping file received
+            if self.mt_swapping_file:
+                # close file_io object and set file_closed flag to True
+                file_io.close()
+                file_closed = True
+                self.mt_swapping_file = False
+
+            # create new file_io object using a new filename got from set_filename queue when file closed
+            if file_closed:
+                try:
+                    filename = self.mt_set_filename.get(timeout=0.5)  # get new filename from queue
+                    print("set spi filename:", filename)
+                    file_io = open(filename, "wb")  # open new file io object
+                    file_closed = False  # set file_closed flag value to False
+                    self.mt_filelock = True  # enable file object lock
+                    print("\nthr_data_process file opened, ts: {:.1f}".format(time.time()))
+
+                    # calculate one byte of each channel
+                    ch_addon = [
+                        bytes(((self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1), ),
+                        bytes(((self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1), ),
+                        bytes(((self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1), )
+                    ]
+
+                except Empty:
+                    continue  # repeat this operation until new file_io has been created and opened
+
+            # get one small batch of data from raw_data_queue
+            try:
+                frame = self.mp_raw_data_queue.get(timeout=0.5)
+                if not len(frame):
+                    continue  # make sure the one small batch is not empty
+            except Empty:
+                continue  # repeat this operation until one small batch data got
+
+            # convert iterable data to byte array
+            byte_array = bytes(frame)
+
+            # write data to file with 32-bit per channel (also convert data to numpy array)
+            for b_i in range(len(byte_array) // 9):
+                b_st = b_i * 9
+                # cache data
+                ch1 = byte_array[b_st:b_st + 3]
+                ch2 = byte_array[b_st + 3:b_st + 6]
+                ch3 = byte_array[b_st + 6:b_st + 9]
+
+                # convert bytes to int in batch
+                if not self.to_file_only:  # skip this operation if to_file_only is enabled
+                    if batch_is_a:
+                        ch1_batch_a.append(int.from_bytes(ch1, byteorder="big", signed=True))
+                        ch2_batch_a.append(int.from_bytes(ch2, byteorder="big", signed=True))
+                        ch3_batch_a.append(int.from_bytes(ch3, byteorder="big", signed=True))
+                    else:
+                        ch1_batch_b.append(int.from_bytes(ch1, byteorder="big", signed=True))
+                        ch2_batch_b.append(int.from_bytes(ch2, byteorder="big", signed=True))
+                        ch3_batch_b.append(int.from_bytes(ch3, byteorder="big", signed=True))
+
+                # write data, data structure (big endian): [uint_8 info_byte, int_24 data_payload]
+                file_io.write(ch_addon[0] + ch1)  # ch1
+                file_io.write(ch_addon[1] + ch2)  # ch2
+                file_io.write(ch_addon[2] + ch3)  # ch3
+
+            # put batched data in data_queue_x4
+            if not self.to_file_only:
+                if cnt < 4:
+                    cnt += 1
+                else:
+                    cnt = 0
+                    # put data when 4 small batch is collected
+                    if batch_is_a:
+                        self.mp_all_data_queue_x4.put((ch1_batch_a, ch2_batch_a, ch3_batch_a))
+                        batch_is_a = False
+                        ch1_batch_b.clear()
+                        ch2_batch_b.clear()
+                        ch3_batch_b.clear()
+                    else:
+                        self.mp_all_data_queue_x4.put((ch1_batch_b, ch2_batch_b, ch3_batch_b))
+                        batch_is_a = True
+                        ch1_batch_a.clear()
+                        ch2_batch_a.clear()
+                        ch3_batch_a.clear()
+
+        if self.mt_debug:
+            print("\nproc_data_process stopped, ts: {:.1f}".format(time.time()))
 
         return
 
@@ -292,7 +542,7 @@ class FPGACom:
                     file_closed = True
                     self.mp_filelock.value = False
                     print("proc_data_process file closed, ts: {:.1f}".format(time.time()))
-                    time.sleep(0.02)
+                time.sleep(0.02)
                 continue  # keeps IDLE
 
             # close file_io to replace existed file_io object with a new one when signal of swapping file received
@@ -364,17 +614,13 @@ class FPGACom:
                     cnt = 0
                     # put data when 4 small batch is collected
                     if batch_is_a:
-                        self.mp_ch1_data_queue_x4.put(ch1_batch_a)
-                        self.mp_ch2_data_queue_x4.put(ch2_batch_a)
-                        self.mp_ch3_data_queue_x4.put(ch3_batch_a)
+                        self.mp_all_data_queue_x4.put((ch1_batch_a, ch2_batch_a, ch3_batch_a))
                         batch_is_a = False
                         ch1_batch_b.clear()
                         ch2_batch_b.clear()
                         ch3_batch_b.clear()
                     else:
-                        self.mp_ch1_data_queue_x4.put(ch1_batch_b)
-                        self.mp_ch2_data_queue_x4.put(ch2_batch_b)
-                        self.mp_ch3_data_queue_x4.put(ch3_batch_b)
+                        self.mp_all_data_queue_x4.put((ch1_batch_b, ch2_batch_b, ch3_batch_b))
                         batch_is_a = True
                         ch1_batch_a.clear()
                         ch2_batch_a.clear()
@@ -385,11 +631,11 @@ class FPGACom:
 
         return
 
-    def update_status(self, status: FPGAStatusStruct):
+    def mp_update_status(self, status: FPGAStatusStruct):
         # if status.sdram_init_done:
         #     self.stat_main2sub_sdram_init_done.put(True, block=False)
         if status.spi_data_ready:
-            self.stat_main2sub_spi_data_ready.put(True, block=False)
+            self.stat_main2sub_spi_data_ready.put(True)
         # if status.spi_rd_error:
         #     self.stat_main2sub_spi_rd_error.put(True, block=False)
         # if status.sdram_overlap:
@@ -398,36 +644,50 @@ class FPGACom:
         #     self.stat_main2sub_pll_ready.put(True, block=False)
 
     def start(self):
-        self.mp_live.value = True  # start signal
+        if self.multiprocessing:
+            self.mp_live.value = True  # start signal
 
-        self.processes.append(Process(target=self.proc_spi_receiver, daemon=True))
-        self.processes.append(Process(target=self.proc_data_process, daemon=True))
+            self.processes.append(Process(target=self.proc_spi_receiver, daemon=True))
+            self.processes.append(Process(target=self.proc_data_process, daemon=True))
 
-        [ele.start() for ele in self.processes]
+            [ele.start() for ele in self.processes]
+
+            self.threads.append(threading.Thread(target=self.thr_mp_status_update_thread))
+        else:
+            self.mt_live = True
+            self.threads.append(threading.Thread(target=self.thr_spi_receiver))
+            self.threads.append(threading.Thread(target=self.thr_data_process))
 
         self.ctl.reset()
-
-        self.threads.append(threading.Thread(target=self.thr_status_update_thread, daemon=True))
         [ele.start() for ele in self.threads]
 
     def debug(self, value: bool = True):
-        self.mp_debug.value = value
+        if self.multiprocessing:
+            self.mp_debug.value = value
+        else:
+            self.mt_debug = value
 
     def kill(self):
         self.close()
-        while self.mp_live.value:
-            self.mp_live.value = False  # stop signal
+        if self.multiprocessing:
+            while self.mp_live.value:
+                self.mp_live.value = False  # stop signal
 
-        time.sleep(0.2)
-        [ele.join() for ele in self.threads]
-        [ele.join() for ele in self.processes]
-        [ele.terminate() for ele in self.processes]
-        time.sleep(0.2)
-        self.processes.clear()
-        self.threads.clear()
+            time.sleep(0.2)
+            [ele.join() for ele in self.threads]
+            [ele.join() for ele in self.processes]
+            [ele.terminate() for ele in self.processes]
+            time.sleep(0.2)
+            self.processes.clear()
+            self.threads.clear()
 
-        if self.mp_debug.value:
-            print("killed all subprocesses")
+            if self.mp_debug.value:
+                print("killed all subprocesses")
+        else:
+            self.mt_live = False
+            time.sleep(0.2)
+            [ele.join() for ele in self.threads]
+            self.threads.clear()
 
     def open(self):
         if not self.ctl.fpga_is_open:
@@ -438,20 +698,33 @@ class FPGACom:
             self.ctl.stat_sdram_init_done = False
             self.ctl.start_FPGA()
 
-        self.mp_running.value = True
-        self.mp_set_filename.put(self.output_filename)
-        while not self.mp_filelock.value:
-            time.sleep(0.001)
+        if self.multiprocessing:
+            self.mp_running.value = True
+            self.mp_set_filename.put(self.output_filename)
+            while not self.mp_filelock.value:
+                time.sleep(0.002)
+        else:
+            self.mt_running = True
+            self.mt_set_filename.put(self.output_filename)
+            while not self.mt_filelock:
+                time.sleep(0.002)
 
     def close(self):
-        try:
-            while self.mp_running.value:
-                self.mp_running.value = False
-        except Exception as err:
-            print("error while exiting FPGA-COM object,", err)
-        t0 = time.time()
-        while self.mp_filelock.value and time.time() - t0 < 5:
-            time.sleep(0.001)
+        if self.multiprocessing:
+            try:
+                while self.mp_running.value:
+                    self.mp_running.value = False
+            except Exception as err:
+                print("error while exiting FPGA-COM object,", err)
+            t0 = time.time()
+            while self.mp_filelock.value and time.time() - t0 < 5:
+                time.sleep(0.01)
+
+        else:
+            self.mt_running = False
+            t0 = time.time()
+            while self.mt_filelock and time.time() - t0 < 5:
+                time.sleep(0.01)
 
         if self.ctl.fpga_is_open:
             self.ctl.stop_FPGA()

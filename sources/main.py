@@ -29,7 +29,7 @@ from modules.spi import FPGACtl, FPGACom
 from modules.i2c import BandWidthCtl, AmpRateCtl
 from modules.debug import DEBUG
 
-TEST = True
+TEST = False
 DECOY = False
 
 
@@ -758,6 +758,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         if self.sec_time_graph_updater.isFinished():
             self.sec_time_graph_updater.update_graph()
         self.sec_time_graph_updater.start()
+
         # add_time = int(self.comboBox_secFieldStackingTime.currentText())
         # sample_rate = int(self.comboBox_sampleRate.currentText())
         # emit_rate = int(self.comboBox_radiateFreq.currentText())

@@ -17,7 +17,7 @@ from queue import Empty
 from multiprocessing import Manager, Process, Queue
 
 
-class TestThread(QThread):
+class TestThread(QThread):  # basic format of QThread
 
     def __init__(self):
         super(TestThread, self).__init__()
@@ -28,12 +28,12 @@ class TestThread(QThread):
             time.sleep(0.5)
 
 
-class SecGraphUpdaterThread(QThread):
+class SecGraphUpdaterThread(QThread):  # hyperbola graph updater thread
 
     def __init__(self, parent):
         super().__init__()
-        self.parent = parent
-        self.last_rander_tab = 0
+        self.parent = parent  # UIReceiver object in main.py
+        self.last_rander_tab = 0  # channel tab index of 3 channels and 1 summary
         self.last_rander_data1 = ()
         self.last_rander_data2 = ()
         self.last_rander_data3 = ()
@@ -65,8 +65,6 @@ class SecGraphUpdaterThread(QThread):
         sample_rate = int(self.parent.comboBox_sampleRate.currentText())
         emit_rate = int(self.parent.comboBox_radiateFreq.currentText())
         tab_index = self.parent.tabWidget_channelGraph.currentIndex()
-        current_buf = None
-        current_data = None
 
         self.last_rander_tab = tab_index
 
@@ -158,9 +156,8 @@ class DataUpdaterThread(QThread):
         self.ts_zero = 0.0
         self.timestamp = 0.0
         self.dt_i = 1 / int(self.parent.comboBox_sampleRate.currentText())
-        self.fifo_ch1: Queue = self.parent.fpga_com.mp_ch1_data_queue_x4
-        self.fifo_ch2: Queue = self.parent.fpga_com.mp_ch2_data_queue_x4
-        self.fifo_ch3: Queue = self.parent.fpga_com.mp_ch3_data_queue_x4
+        self.sample_rate = int(self.parent.comboBox_sampleRate.currentText())
+        self.fifo_all: Queue = self.parent.fpga_com.mp_all_data_queue_x4
 
         self.last_batch_timestamp_start = 0.0
 
@@ -168,10 +165,14 @@ class DataUpdaterThread(QThread):
         self.ch2_dat = None
         self.ch3_dat = None
 
+        self.frame_count = 0
+
     def reset(self):
         self.dt_i = 1 / int(self.parent.comboBox_sampleRate.currentText())
+        self.sample_rate = int(self.parent.comboBox_sampleRate.currentText())
         self.timestamp = 0.0
         self.ts_zero = 0.0
+        self.frame_count = 0
 
     def run(self):
         # self.parent.amp_ctl.set_LED(led3=not self.parent.amp_ctl.leds[2])
@@ -187,47 +188,42 @@ class DataUpdaterThread(QThread):
             self.parent.gps_updater.gps.set_gps_file(abs_path)
             self.ts_zero = ts
 
+
         for i in range(6):
 
             if self.ch1_dat is None:
                 try:
-                    data = self.fifo_ch1.get_nowait()
+                    data = self.fifo_all.get_nowait()
                     if len(data):
-                        # print(f"ch1 updated data with length {len(data)}")
-                        self.ch1_dat = data
-
-                except Empty:
-                    pass
-
-            if self.ch2_dat is None:
-                try:
-                    data = self.fifo_ch2.get_nowait()
-                    if len(data):
-                        # print(f"ch2 updated data with length {len(data)}")
-                        self.ch2_dat = data
-
-                except Empty:
-                    pass
-
-            if self.ch3_dat is None:
-                try:
-                    data = self.fifo_ch3.get_nowait()
-                    if len(data):
-                        # print(f"ch3 updated data with length {len(data)}")
-                        self.ch3_dat = data
+                        self.ch1_dat = data[0]
+                        self.ch2_dat = data[1]
+                        self.ch3_dat = data[2]
+                        self.frame_count += len(self.ch1_dat)
 
                 except Empty:
                     pass
 
             try:
-                if self.ch1_dat is not None and self.ch2_dat is not None and self.ch3_dat is not None:
-                    self.timestamp = time.time() - self.parent.record_start_ts
+                if self.ch1_dat is not None:
+                    # using system timer
+
+                    # self.timestamp = time.time() - self.parent.record_start_ts
+                    #
+                    # x = np.linspace(
+                    #     self.last_batch_timestamp_start,
+                    #     self.timestamp, len(self.ch1_dat),
+                    #     dtype=np.float32
+                    # )
+
+                    # using calculated timer
+                    frame_len = len(self.ch1_dat)
+                    ts_0 = (self.frame_count - frame_len) / self.sample_rate
+                    ts_1 = self.frame_count / self.sample_rate
 
                     x = np.linspace(
-                        self.last_batch_timestamp_start,
-                        self.timestamp, len(self.ch1_dat),
-                        dtype=np.float32
+                        ts_0, ts_1, frame_len, dtype=np.float32
                     )
+
                     self.parent.buf_realTime_ch1.updateBatch(self.ch1_dat, x)
                     self.parent.buf_realTime_ch2.updateBatch(self.ch2_dat, x)
                     self.parent.buf_realTime_ch3.updateBatch(self.ch3_dat, x)
