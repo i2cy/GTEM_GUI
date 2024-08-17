@@ -183,7 +183,6 @@ class FPGACom:
                 # try to get read-done signal from spi receiver
                 try:
                     read_done = self.stat_sub2main_read_done.get(timeout=0.005)
-                    print("read done")
                 except Empty:
                     read_done = False
                 self.flag_spi_reading = not read_done
@@ -225,7 +224,7 @@ class FPGACom:
         self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=SPI_MODE)
 
         # locals
-        frame_size = 32756
+        frame_size = 32768
 
         # receiver process loop
         while self.mt_live:
@@ -246,7 +245,7 @@ class FPGACom:
 
             # wait to spi_data_ready to continue
             if data_ready:
-                print("spi data ready detected, ts: {:.1f}".format(time.time()), end="")
+                print("\nspi data ready detected, ts: {:.1f}".format(time.time()), end="")
             else:
                 continue
 
@@ -258,14 +257,11 @@ class FPGACom:
                 read_byte_count = 0
                 # enable SPI CS
                 self.spi_dev.set_CS1()
-                print("CS enabled")
                 # get size of batch from multithreading Value
                 batch = self.mt_batchsize
-                print("batch size got: {}".format(batch))
                 # read data 32756 bytes each time
                 for i in range(batch // frame_size):
                     read = self.spi_dev.spi_read(frame_size)
-                    print(f"read {i}")
                     read_byte_count += frame_size
                     data.extend(read)
                     if not self.mt_running:
@@ -273,11 +269,9 @@ class FPGACom:
                 # read remaining data
                 if batch > read_byte_count and self.mt_running:
                     read = self.spi_dev.spi_read(batch - read_byte_count)
-                    print("read last")
                     data.extend(read)
                 # disable SPI CS
                 self.spi_dev.set_CS1(False)
-                print("CS disabled")
                 # put data in raw_data_queue for proc_data_process to use
                 try:
                     self.mp_raw_data_queue.put(data, block=False)
@@ -305,7 +299,7 @@ class FPGACom:
         self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=SPI_MODE)
 
         # locals
-        frame_size = 32756
+        frame_size = 32768
 
         # receiver process loop
         while self.mp_live.value:
@@ -322,7 +316,7 @@ class FPGACom:
 
             # wait to spi_data_ready to continue
             if data_ready:
-                print("spi data ready detected, ts: {:.1f}".format(time.time()), end="")
+                print("\nspi data ready detected, ts: {:.1f}".format(time.time()), end="")
             else:
                 continue
 
@@ -334,14 +328,11 @@ class FPGACom:
                 read_byte_count = 0
                 # enable SPI CS
                 self.spi_dev.set_CS1()
-                print("CS enabled")
                 # get size of batch from multithreading Value
                 batch = self.mp_batchsize.value
-                print("batch size got: {}".format(batch))
                 # read data 32756 bytes each time
                 for i in range(batch // frame_size):
                     read = self.spi_dev.spi_read(frame_size)
-                    print(f"read size {len(read)}, {i}")
                     read_byte_count += len(read)
                     data.extend(read)
                     if not self.mp_running.value:
@@ -354,12 +345,10 @@ class FPGACom:
                     else:
                         read = self.spi_dev.spi_read(remains)
                     read_byte_count += len(read)
-                    print(f"read last size {len(read)}")
                     data.extend(read)
 
                 # disable SPI CS
                 self.spi_dev.set_CS1(False)
-                print("CS disabled")
                 # put data in raw_data_queue for proc_data_process to use
                 try:
                     self.mp_raw_data_queue.put(data, block=False)
@@ -370,7 +359,6 @@ class FPGACom:
                 warnings.warn("[error] spi receiver error, {}, ts: {:.1f}".format(err, time.time()))
 
             # inform thr_status_update_thread that receiver has done reading
-            print("read done sent")
             self.stat_sub2main_read_done.put(True)
 
         # closing procedure
@@ -398,6 +386,7 @@ class FPGACom:
 
         # initialize miscellaneous
         ch_addon = [b"\x00"] * 3
+        remains = b""
 
         # initialize counter for batch queue
         cnt = 0
@@ -439,9 +428,9 @@ class FPGACom:
 
                     # calculate one byte of each channel
                     ch_addon = [
-                        bytes(((self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1), ),
-                        bytes(((self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1), ),
-                        bytes(((self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1), )
+                        bytes(((self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1,)),
+                        bytes(((self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 2,)),
+                        bytes(((self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 3,))
                     ]
 
                 except Empty:
@@ -456,15 +445,17 @@ class FPGACom:
                 continue  # repeat this operation until one small batch data got
 
             # convert iterable data to byte array
-            byte_array = bytes(frame)
+            byte_array = remains + bytes(frame)
 
             # write data to file with 32-bit per channel (also convert data to numpy array)
+            processed_length = 0
             for b_i in range(len(byte_array) // 9):
                 b_st = b_i * 9
                 # cache data
                 ch1 = byte_array[b_st:b_st + 3]
                 ch2 = byte_array[b_st + 3:b_st + 6]
                 ch3 = byte_array[b_st + 6:b_st + 9]
+                processed_length += 9
 
                 # convert bytes to int in batch
                 if not self.to_file_only:  # skip this operation if to_file_only is enabled
@@ -481,6 +472,10 @@ class FPGACom:
                 file_io.write(ch_addon[0] + ch1)  # ch1
                 file_io.write(ch_addon[1] + ch2)  # ch2
                 file_io.write(ch_addon[2] + ch3)  # ch3
+
+            # keep the remaining data for next round
+            if len(byte_array) > processed_length:
+                remains = byte_array[processed_length:]
 
             # put batched data in data_queue_x4
             if not self.to_file_only:
@@ -523,6 +518,7 @@ class FPGACom:
 
         # initialize miscellaneous
         ch_addon = [b"\x00"] * 3
+        remains = b""
 
         # initialize counter for batch queue
         cnt = 0
@@ -564,9 +560,9 @@ class FPGACom:
 
                     # calculate one byte of each channel
                     ch_addon = [
-                        bytes(((self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1), ),
-                        bytes(((self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 1), ),
-                        bytes(((self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 1), )
+                        bytes(((self.ctl.mp_ch1_amp_rate.value % 16) << 4 | self.ctl.ch1_is_open.value << 2 | 1,)),
+                        bytes(((self.ctl.mp_ch2_amp_rate.value % 16) << 4 | self.ctl.ch2_is_open.value << 2 | 2,)),
+                        bytes(((self.ctl.mp_ch3_amp_rate.value % 16) << 4 | self.ctl.ch3_is_open.value << 2 | 3,))
                     ]
                 except Empty:
                     continue  # repeat this operation until new file_io has been created and opened
@@ -580,15 +576,17 @@ class FPGACom:
                 continue  # repeat this operation until one small batch data got
 
             # convert iterable data to byte array
-            byte_array = bytes(frame)
+            byte_array = remains + bytes(frame)
 
             # write data to file with 32-bit per channel (also convert data to numpy array)
+            processed_length = 0
             for b_i in range(len(byte_array) // 9):
                 b_st = b_i * 9
                 # cache data
                 ch1 = byte_array[b_st:b_st + 3]
                 ch2 = byte_array[b_st + 3:b_st + 6]
                 ch3 = byte_array[b_st + 6:b_st + 9]
+                processed_length += 9
 
                 # convert bytes to int in batch
                 if not self.to_file_only:  # skip this operation if to_file_only is enabled
@@ -605,6 +603,10 @@ class FPGACom:
                 file_io.write(ch_addon[0] + ch1)  # ch1
                 file_io.write(ch_addon[1] + ch2)  # ch2
                 file_io.write(ch_addon[2] + ch3)  # ch3
+
+            # keep the remaining data for next round
+            if len(byte_array) > processed_length:
+                remains = byte_array[processed_length:]
 
             # put batched data in data_queue_x4
             if not self.to_file_only:
@@ -734,3 +736,4 @@ if __name__ == '__main__':
     import wiringpi as wpi
 
     wpi.wiringPiSPISetup(0, 500000)
+
