@@ -43,6 +43,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
         # flags
         self.flag_recording = False
+        self.flag_sd_card_available = True
 
         # menu
         self.toolButton_GTEM.clicked.connect(self.onButtonGTEMClicked)
@@ -509,6 +510,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.fpga_ctl.set_amp_rate_of_channels(self.comboBox_ch1Amp.currentText(),
                                                self.comboBox_ch2Amp.currentText(),
                                                self.comboBox_ch3Amp.currentText())
+        self.fpga_com.set_batch_size(self.comboBox_sampleRate.currentIndex())
 
         # load filename
         filename = self.staticGenerateFilename()
@@ -617,6 +619,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                     value = decode_df(ele)
 
             if value == -1:
+                os.system(f"sudo fsck -y -l {SD_PATH}")
                 os.system(f"sudo mount {SD_PATH} {MOUNT_PATH}")
                 p = os.popen("df")
                 data = p.readlines()
@@ -628,18 +631,21 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
             self.progressBar.setEnabled(True)
             self.progressBar.setValue(int(value))
-            self.toolButton_startRecording.setEnabled(True)
+            self.flag_sd_card_available = True
         else:
             if self.flag_recording:
                 self.actionStopRecording()
             self.progressBar.setEnabled(False)
             self.toolButton_startRecording.setEnabled(False)
+            self.flag_sd_card_available = False
 
         # update GPS
         fpga_status = self.fpga_ctl.read_status()
-        if self.gps_updater.gps_status and fpga_status.sdram_init_done:
+        if self.gps_updater.gps_status and fpga_status.sdram_init_done and self.flag_sd_card_available:
             self.toolButton_startRecording.setEnabled(True)
             self.gps_error_count = 0
+            rt_sys = time.strftime("%m%d%H%M%y.%S", self.gps_updater.gps.get_realtime())
+            os.system(f"sudo date {rt_sys}")
         else:
             if self.gps_error_count > 3 or not fpga_status.sdram_init_done:
                 if self.flag_recording:
@@ -695,61 +701,6 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             self.real_time_graph_updater.update_graph()
 
         self.real_time_graph_updater.start()
-        # sample_rate = int(self.comboBox_sampleRate.currentText())
-        # emit_rate = int(self.comboBox_radiateFreq.currentText())
-        # tab_index = self.tabWidget_channelGraph.currentIndex()
-        # current_buf = None
-        # current_data = None
-        #
-        # if tab_index == 1:
-        #     current_buf = self.buf_realTime_ch1
-        #     current_plot = self.rtPlotWeight_ch1
-        #     current_data = self.rtPlot_ch1
-        # elif tab_index == 2:
-        #     current_buf = self.buf_realTime_ch2
-        #     current_plot = self.rtPlotWeight_ch2
-        #     current_data = self.rtPlot_ch2
-        # elif tab_index == 3:
-        #     current_buf = self.buf_realTime_ch3
-        #     current_plot = self.rtPlotWeight_ch3
-        #     current_data = self.rtPlot_ch3
-        # else:
-        #     current_plot = self.rtPlotWeight_all
-        #
-        # max_view_range = 4 / emit_rate
-        # view_range = int(max_view_range * sample_rate)
-        #
-        # if tab_index:
-        #     dt, data = current_buf.getBuf(view_range)
-        #     x_range = current_plot.getViewBox().viewRange()
-        #     y_range = x_range[1]
-        #     x_range = x_range[0]
-        #     x_start = (x_range[0] + dt) * max_view_range // max_view_range
-        #     x_range = [x_start, x_start + max_view_range]
-        #
-        #     current_data.setData(*data)
-        # else:
-        #     dt, data = self.buf_realTime_ch1.getBuf(view_range)
-        #     x_range = current_plot.getViewBox().viewRange()
-        #     y_range = x_range[1]
-        #     x_range = x_range[0]
-        #     x_range = [x_range[0] + dt, x_range[1] + dt]
-        #     self.rtPlot_allch1.setData(*data)
-        #     dt, data = self.buf_realTime_ch2.getBuf(view_range)
-        #     self.rtPlot_allch2.setData(*data)
-        #     dt, data = self.buf_realTime_ch3.getBuf(view_range)
-        #     self.rtPlot_allch3.setData(*data)
-        #
-        # xmin = data[0][0]
-        #
-        # self.rtPlotWeight_all.setLimits(xMin=xmin, xMax=data[0][-1])
-        # self.rtPlotWeight_all.setRange(xRange=x_range, yRange=y_range, padding=0)
-        # self.rtPlotWeight_ch1.setLimits(xMin=xmin, xMax=data[0][-1])
-        # self.rtPlotWeight_ch1.setRange(xRange=x_range, yRange=y_range, padding=0)
-        # self.rtPlotWeight_ch2.setLimits(xMin=xmin, xMax=data[0][-1])
-        # self.rtPlotWeight_ch2.setRange(xRange=x_range, yRange=y_range, padding=0)
-        # self.rtPlotWeight_ch3.setLimits(xMin=xmin, xMax=data[0][-1])
-        # self.rtPlotWeight_ch3.setRange(xRange=x_range, yRange=y_range, padding=0)
 
     def doUpdateSecFieldGraph(self):
         if self.stackedWidget_topBar.currentIndex() != 1 or self.sec_time_graph_updater.isRunning():
@@ -758,42 +709,6 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         if self.sec_time_graph_updater.isFinished():
             self.sec_time_graph_updater.update_graph()
         self.sec_time_graph_updater.start()
-
-        # add_time = int(self.comboBox_secFieldStackingTime.currentText())
-        # sample_rate = int(self.comboBox_sampleRate.currentText())
-        # emit_rate = int(self.comboBox_radiateFreq.currentText())
-        # tab_index = self.tabWidget_channelGraph.currentIndex()
-        # current_buf = None
-        # current_data = None
-        #
-        # if tab_index == 1:
-        #     current_buf = self.buf_realTime_ch1
-        #     current_data = self.sfPlot_ch1
-        #     data = current_buf.getBuf(sample_rate * add_time)
-        #     x, sig = Gtem24(sample_rate=sample_rate,
-        #                     emit_freq=emit_rate,
-        #                     data=data[1][1]).gateTraceSecFieldExtract(add_time)
-        #     current_data.setData(x, sig)
-        #
-        # elif tab_index == 2:
-        #     current_buf = self.buf_realTime_ch2
-        #     current_data = self.sfPlot_ch2
-        #     data = current_buf.getBuf(sample_rate * add_time)
-        #     x, sig = Gtem24(sample_rate=sample_rate,
-        #                     emit_freq=emit_rate,
-        #                     data=data[1][1]).gateTraceSecFieldExtract(add_time)
-        #     current_data.setData(x, sig)
-        # elif tab_index == 3:
-        #     current_buf = self.buf_realTime_ch3
-        #     current_data = self.sfPlot_ch3
-        #     data = current_buf.getBuf(sample_rate * add_time)
-        #     x, sig = Gtem24(sample_rate=sample_rate,
-        #                     emit_freq=emit_rate,
-        #                     data=data[1][1]).gateTraceSecFieldExtract(add_time)
-        #     current_data.setData(x, sig)
-        # else:
-        #     current_plot = self.rtPlotWeight_all
-        #     current_data = self.rtPlot_ch1
 
 
 def test(ui):

@@ -115,4 +115,8 @@ if __name__ == '__main__':
         f.write(mod_40)
         f.close()
 
+    print("## Remove NTP service")
+    os.system("sudo service ntpd stop")
+    os.system("sudo systemctl disable ntpd")
+
     print("## Done")

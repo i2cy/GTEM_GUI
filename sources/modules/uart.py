@@ -190,6 +190,7 @@ class GPS:
 
 
 if __name__ == '__main__':
+    import os
     gps_test = GPS(GPS_DEVICE, GPS_BR)
     gps_test.start()
     while True:
@@ -207,6 +208,11 @@ if __name__ == '__main__':
                   f"longitude: {long_sign} {gps_test.longitude.degree}°{gps_test.longitude.minute}'\n"
                   f"speed: {gps_test.ground_speed:.2f} m/s\n"
                   f"towards: {gps_test.ground_direction}°")
+            if gps_test.loc_status:
+                print(gps_test.get_realtime(), time.time())
+                rt_sys = time.strftime("%m%d%H%M%y.%S", gps_test.get_realtime())
+                os.system(f"sudo date {rt_sys}")
+                print(time.time())
             time.sleep(1)
         except KeyboardInterrupt:
             break
