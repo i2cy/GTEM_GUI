@@ -16,10 +16,10 @@ LIVE = True
 
 if __name__ == '__main__':
     print("initializing FPGA controller")
-    ctl = FPGACtl("/dev/i2c-2", debug=False)
+    ctl = FPGACtl("/dev/i2c-2", debug=True)
 
     print("initializing FPGA communication interface")
-    com = FPGACom(to_file_only=True, ctl=ctl, debug=False, multiprocessing=True)
+    com = FPGACom(to_file_only=True, ctl=ctl, debug=True, multiprocessing=True)
 
     print("starting communication interface")
     com.start()
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     convert_sheet = ["500", "1K", "2K", "4K", "8K", "10K", "20K", "32K",
                      "40K", "80K", "25K", "50K", "100K", "200K", "400K", "800K"]
 
-    sample_rate = 0x0c
+    sample_rate = 0x0d
     print("setting sample rate: {}".format(convert_sheet[sample_rate]))
     ctl.set_sample_rate_level(sample_rate)
     com.set_batch_size(sample_rate)

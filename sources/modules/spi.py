@@ -16,6 +16,7 @@ from queue import Queue as ThreadQueue
 from multiprocessing import Process, Queue, Manager, Value, Array
 import warnings
 import threading
+import os
 
 if __name__ == "__main__":
     from i2c import FPGACtl, FPGAStatusStruct
@@ -290,16 +291,19 @@ class FPGACom:
         return
 
     def proc_spi_receiver(self):
-        # debug output
-        if self.mp_debug.value:
-            print("\nproc_spi_receiver started, ts: {:.1f}".format(time.time()))
-
         # initialize CH347 communication interface
-        self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, 1, enable_device_lock=False)
+        self.spi_dev = CH347HIDDev(VENDOR_ID, PRODUCT_ID, enable_device_lock=False)
         self.spi_dev.init_SPI(clock_freq_level=SPI_SPEED, mode=SPI_MODE)
 
         # locals
         frame_size = 32768
+
+        # set low IRQ priority
+        os.system(f"sudo chrt -f -p 50 {os.getpid()}")
+
+        # debug output
+        if self.mp_debug.value:
+            print("\nproc_spi_receiver started, ts: {:.1f}".format(time.time()))
 
         # receiver process loop
         while self.mp_live.value:
@@ -507,6 +511,9 @@ class FPGACom:
         if self.mp_debug.value:
             print("\nproc_data_process started, ts: {:.1f}".format(time.time()))
 
+        # set low IRQ priority
+        os.system(f"sudo chrt -f -p 1 {os.getpid()}")
+
         # initialize cache list (A/B list), and swap flag
         ch1_batch_a = []
         ch2_batch_a = []
@@ -580,6 +587,7 @@ class FPGACom:
 
             # write data to file with 32-bit per channel (also convert data to numpy array)
             processed_length = 0
+            file_cache = b""
             for b_i in range(len(byte_array) // 9):
                 b_st = b_i * 9
                 # cache data
@@ -599,10 +607,11 @@ class FPGACom:
                         ch2_batch_b.append(int.from_bytes(ch2, byteorder="big", signed=True))
                         ch3_batch_b.append(int.from_bytes(ch3, byteorder="big", signed=True))
 
-                # write data, data structure (big endian): [uint_8 info_byte, int_24 data_payload]
-                file_io.write(ch_addon[0] + ch1)  # ch1
-                file_io.write(ch_addon[1] + ch2)  # ch2
-                file_io.write(ch_addon[2] + ch3)  # ch3
+                # cache data for file, data structure (big endian): [uint_8 info_byte, int_24 data_payload]
+                file_cache += ch_addon[0] + ch1 + ch_addon[1] + ch2 + ch_addon[2] + ch3
+
+            # write data
+            file_io.write(file_cache)
 
             # keep the remaining data for next round
             if len(byte_array) > processed_length:

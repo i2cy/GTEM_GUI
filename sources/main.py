@@ -474,8 +474,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
     def actionStartRecording(self):
         self.doResetRealTimeGraph()
-        self.rtGraph_Ticker.start(500)
-        self.sfGraph_Ticker.start(1000)
+        self.rtGraph_Ticker.start(100)
+        self.sfGraph_Ticker.start(500)
         self.toolButton_startRecording.setText("正在采集")
         self.toolButton_settings.setEnabled(False)
         self.toolButton_mainMenu.setEnabled(False)
@@ -485,11 +485,14 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.record_start_ts = time.time()
 
         # reset buffer
-        self.buf_realTime_ch1.reset(25000 * 5, sample_rate=int(self.comboBox_sampleRate.currentText()),
+        self.buf_realTime_ch1.reset(int(self.comboBox_sampleRate.currentText()) * 5,
+                                    sample_rate=int(self.comboBox_sampleRate.currentText()),
                                     freq=float(self.comboBox_radiateFreq.currentText()))
-        self.buf_realTime_ch2.reset(25000 * 5, sample_rate=int(self.comboBox_sampleRate.currentText()),
+        self.buf_realTime_ch2.reset(int(self.comboBox_sampleRate.currentText()) * 5,
+                                    sample_rate=int(self.comboBox_sampleRate.currentText()),
                                     freq=float(self.comboBox_radiateFreq.currentText()))
-        self.buf_realTime_ch3.reset(25000 * 5, sample_rate=int(self.comboBox_sampleRate.currentText()),
+        self.buf_realTime_ch3.reset(int(self.comboBox_sampleRate.currentText()) * 5,
+                                    sample_rate=int(self.comboBox_sampleRate.currentText()),
                                     freq=float(self.comboBox_radiateFreq.currentText()))
 
         # reset graphs
@@ -637,6 +640,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                 self.actionStopRecording()
             self.progressBar.setEnabled(False)
             self.toolButton_startRecording.setEnabled(False)
+            if self.flag_recording:
+                os.system(f"sudo umount {SD_PATH}")
             self.flag_sd_card_available = False
 
         # update GPS
@@ -645,7 +650,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
             self.toolButton_startRecording.setEnabled(True)
             self.gps_error_count = 0
             rt_sys = time.strftime("%m%d%H%M%y.%S", self.gps_updater.gps.get_realtime())
-            os.system(f"sudo date {rt_sys}")
+            os.system(f"sudo date {rt_sys} > /dev/null")
         else:
             if self.gps_error_count > 3 or not fpga_status.sdram_init_done:
                 if self.flag_recording:
@@ -747,6 +752,9 @@ def test(ui):
 
 if __name__ == '__main__':
     global ti, cnt
+    # set low IRQ priority
+    os.system(f"sudo chrt -f -p 1 {os.getpid()}")
+
     app = QApplication(sys.argv)
     ui = UIReceiver()
 
