@@ -19,7 +19,7 @@ if __name__ == '__main__':
     ctl = FPGACtl("/dev/i2c-2", debug=True)
 
     print("initializing FPGA communication interface")
-    com = FPGACom(to_file_only=True, ctl=ctl, debug=True, multiprocessing=True)
+    com = FPGACom(to_file_only=True, ctl=ctl, debug=True, multiprocessing=False)
 
     print("starting communication interface")
     com.start()

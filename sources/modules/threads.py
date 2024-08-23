@@ -4,6 +4,7 @@
 # Project: 9.3 地面接收机软件
 # Filename: threads
 # Created on: 2022/9/10
+import warnings
 
 import numpy as np
 from PyQt5.QtCore import QThread
@@ -173,6 +174,11 @@ class DataUpdaterThread(QThread):
         self.timestamp = 0.0
         self.ts_zero = 0.0
         self.frame_count = 0
+        while not self.fifo_all.empty():
+            try:
+                self.fifo_all.get(block=False)
+            except Empty:
+                break
 
     def run(self):
         # self.parent.amp_ctl.set_LED(led3=not self.parent.amp_ctl.leds[2])
@@ -188,54 +194,36 @@ class DataUpdaterThread(QThread):
             self.parent.gps_updater.gps.set_gps_file(abs_path)
             self.ts_zero = ts
 
+        try:
+            data = self.fifo_all.get(timeout=0.5)
+            if len(data):
+                self.ch1_dat = data[0]
+                self.ch2_dat = data[1]
+                self.ch3_dat = data[2]
+                self.frame_count += len(self.ch1_dat)
 
-        for i in range(6):
+        except Empty:
+            return
 
-            if self.ch1_dat is None:
-                try:
-                    data = self.fifo_all.get_nowait()
-                    if len(data):
-                        self.ch1_dat = data[0]
-                        self.ch2_dat = data[1]
-                        self.ch3_dat = data[2]
-                        self.frame_count += len(self.ch1_dat)
+        try:
+            frame_len = len(self.ch1_dat)
+            ts_0 = (self.frame_count - frame_len) / self.sample_rate
+            ts_1 = self.frame_count / self.sample_rate
 
-                except Empty:
-                    pass
+            print("\nupdated data from {}s to {}s".format(ts_0, ts_1), end="")
 
-            try:
-                if self.ch1_dat is not None:
-                    # using system timer
+            x = np.linspace(
+                ts_0, ts_1, frame_len, dtype=np.float32
+            )
 
-                    # self.timestamp = time.time() - self.parent.record_start_ts
-                    #
-                    # x = np.linspace(
-                    #     self.last_batch_timestamp_start,
-                    #     self.timestamp, len(self.ch1_dat),
-                    #     dtype=np.float32
-                    # )
+            self.parent.buf_realTime_ch1.updateBatch(self.ch1_dat, x)
+            self.parent.buf_realTime_ch2.updateBatch(self.ch2_dat, x)
+            self.parent.buf_realTime_ch3.updateBatch(self.ch3_dat, x)
 
-                    # using calculated timer
-                    frame_len = len(self.ch1_dat)
-                    ts_0 = (self.frame_count - frame_len) / self.sample_rate
-                    ts_1 = self.frame_count / self.sample_rate
-
-                    x = np.linspace(
-                        ts_0, ts_1, frame_len, dtype=np.float32
-                    )
-
-                    self.parent.buf_realTime_ch1.updateBatch(self.ch1_dat, x)
-                    self.parent.buf_realTime_ch2.updateBatch(self.ch2_dat, x)
-                    self.parent.buf_realTime_ch3.updateBatch(self.ch3_dat, x)
-
-                    self.ch1_dat = None
-                    self.ch2_dat = None
-                    self.ch3_dat = None
-
-                    self.last_batch_timestamp_start = self.timestamp
-                    # print("timestamp now:", self.last_batch_timestamp_start)
-            except:
-                pass
+            self.last_batch_timestamp_start = self.timestamp
+            # print("timestamp now:", self.last_batch_timestamp_start)
+        except Exception as e:
+            warnings.warn(e)
 
         # # print(f"fifo ch1 status: length = {self.fifo_ch1.qsize()}")
 
@@ -345,29 +333,18 @@ class MainGraphUpdaterThread(QThread):
         # if tab stays in page of real time graph
         sample_rate = int(self.parent.comboBox_sampleRate.currentText())
         emit_rate = int(self.parent.comboBox_radiateFreq.currentText())
-        tab_index = self.parent.tabWidget_channelGraph.currentIndex()
-        current_buf = None
-
-        if tab_index == 1:  # ch1 args
-            current_buf = self.parent.buf_realTime_ch1
-            current_plot = self.parent.rtPlotWeight_ch1
-        elif tab_index == 2:  # ch2 args
-            current_buf = self.parent.buf_realTime_ch2
-            current_plot = self.parent.rtPlotWeight_ch2
-        elif tab_index == 3:  # ch3 args
-            current_buf = self.parent.buf_realTime_ch3
-            current_plot = self.parent.rtPlotWeight_ch3
-        else:  # overview args
-            current_plot = self.parent.rtPlotWeight_all
 
         max_view_range = 4 / emit_rate
         view_range = int(max_view_range * sample_rate)
 
-        dt, data = self.parent.buf_realTime_ch1.getBuf(view_range)
+        data = self.parent.buf_realTime_ch1.getBuf(view_range)
         self.last_rander_data1 = data
-        dt, data = self.parent.buf_realTime_ch2.getBuf(view_range)
+        data = self.parent.buf_realTime_ch2.getBuf(view_range)
         self.last_rander_data2 = data
-        dt, data = self.parent.buf_realTime_ch3.getBuf(view_range)
+        data = self.parent.buf_realTime_ch3.getBuf(view_range)
         self.last_rander_data3 = data
+
+        if len(data[0]) != 0:
+            self.update_graph()
 
         # self.parent.amp_ctl.set_LED(led4=False)

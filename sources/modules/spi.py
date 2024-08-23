@@ -9,6 +9,7 @@ from ctypes import c_bool, c_int, c_char_p
 from ch347api import CH347HIDDev, SPIClockFreq, SPIDevice
 from ch347api import VENDOR_ID, PRODUCT_ID
 import struct
+import array
 import numpy as np
 import time
 from queue import Empty, Full
@@ -299,11 +300,12 @@ class FPGACom:
         frame_size = 32768
 
         # set low IRQ priority
-        os.system(f"sudo chrt -f -p 50 {os.getpid()}")
+        pid = os.getpid()
+        # os.system(f"sudo chrt -f -p 50 {pid}")
 
         # debug output
         if self.mp_debug.value:
-            print("\nproc_spi_receiver started, ts: {:.1f}".format(time.time()))
+            print("\nproc_spi_receiver started with PID {}, ts: {:.1f}".format(pid, time.time()))
 
         # receiver process loop
         while self.mp_live.value:
@@ -356,6 +358,9 @@ class FPGACom:
                 # put data in raw_data_queue for proc_data_process to use
                 try:
                     self.mp_raw_data_queue.put(data, block=False)
+                    print("\nput one batch of raw data in raw data queue, size now: {}".format(
+                        self.mp_raw_data_queue.qsize()
+                    ), end="")
                 except Full:
                     warnings.warn("mp_raw_data_queue full, ts: {:.1f}".format(time.time()))
 
@@ -442,6 +447,7 @@ class FPGACom:
 
             # get one small batch of data from raw_data_queue
             try:
+                print("\ntrying to get one batch of data from mp_raw_data_queue", end="")
                 frame = self.mp_raw_data_queue.get(timeout=0.5)
                 if not len(frame):
                     continue  # make sure the one small batch is not empty
@@ -507,20 +513,21 @@ class FPGACom:
         return
 
     def proc_data_process(self):
+        # set low IRQ priority
+        pid = os.getpid()
+        # os.system(f"sudo chrt -f -p 50 {os.getpid()}")
+
         # debug output
         if self.mp_debug.value:
-            print("\nproc_data_process started, ts: {:.1f}".format(time.time()))
-
-        # set low IRQ priority
-        os.system(f"sudo chrt -f -p 1 {os.getpid()}")
+            print("\nproc_data_process started with PID {}, ts: {:.1f}".format(pid, time.time()))
 
         # initialize cache list (A/B list), and swap flag
-        ch1_batch_a = []
-        ch2_batch_a = []
-        ch3_batch_a = []
-        ch1_batch_b = []
-        ch2_batch_b = []
-        ch3_batch_b = []
+        ch1_batch_a = array.array("l")
+        ch2_batch_a = array.array("l")
+        ch3_batch_a = array.array("l")
+        ch1_batch_b = array.array("l")
+        ch2_batch_b = array.array("l")
+        ch3_batch_b = array.array("l")
         batch_is_a = True
 
         # initialize miscellaneous
@@ -536,6 +543,8 @@ class FPGACom:
         # preallocate file_io object
         file_io = None
 
+        running = 0
+
         # data process loop
         while self.mp_live.value:
             # while IDLE
@@ -548,6 +557,9 @@ class FPGACom:
                 time.sleep(0.02)
                 continue  # keeps IDLE
 
+            print("\nproc data process loop run:", running)
+            running += 1
+
             # close file_io to replace existed file_io object with a new one when signal of swapping file received
             if self.mp_swapping_file.value:
                 # close file_io object and set file_closed flag to True
@@ -559,11 +571,11 @@ class FPGACom:
             if file_closed:
                 try:
                     filename = self.mp_set_filename.get(timeout=0.5)  # get new filename from queue
-                    print("set spi filename:", filename)
+                    print("\nset spi filename:", filename, end="")
                     file_io = open(filename, "wb")  # open new file io object
                     file_closed = False  # set file_closed flag value to False
                     self.mp_filelock.value = True  # enable file object lock
-                    print("\nproc_data_process file opened, ts: {:.1f}".format(time.time()))
+                    print("\nproc_data_process file opened, ts: {:.1f}".format(time.time()), end="")
 
                     # calculate one byte of each channel
                     ch_addon = [
@@ -576,6 +588,7 @@ class FPGACom:
 
             # get one small batch of data from raw_data_queue
             try:
+                print("\ntrying to get one batch of data from mp_raw_data_queue", end="")
                 frame = self.mp_raw_data_queue.get(timeout=0.5)
                 if not len(frame):
                     continue  # make sure the one small batch is not empty
@@ -611,6 +624,7 @@ class FPGACom:
                 file_cache += ch_addon[0] + ch1 + ch_addon[1] + ch2 + ch_addon[2] + ch3
 
             # write data
+            print("\nwrite data to file")
             file_io.write(file_cache)
 
             # keep the remaining data for next round
@@ -624,18 +638,21 @@ class FPGACom:
                 else:
                     cnt = 0
                     # put data when 4 small batch is collected
+                    print("\ntrying to put one x4 batch to all_data_x4_queue, size now: {}".format(
+                        self.mp_all_data_queue_x4.qsize()
+                    ), end="")
                     if batch_is_a:
                         self.mp_all_data_queue_x4.put((ch1_batch_a, ch2_batch_a, ch3_batch_a))
                         batch_is_a = False
-                        ch1_batch_b.clear()
-                        ch2_batch_b.clear()
-                        ch3_batch_b.clear()
+                        ch1_batch_b = array.array("l")
+                        ch2_batch_b = array.array("l")
+                        ch3_batch_b = array.array("l")
                     else:
                         self.mp_all_data_queue_x4.put((ch1_batch_b, ch2_batch_b, ch3_batch_b))
                         batch_is_a = True
-                        ch1_batch_a.clear()
-                        ch2_batch_a.clear()
-                        ch3_batch_a.clear()
+                        ch1_batch_a = array.array("l")
+                        ch2_batch_a = array.array("l")
+                        ch3_batch_a = array.array("l")
 
         if self.mp_debug.value:
             print("\nproc_data_process stopped, ts: {:.1f}".format(time.time()))
@@ -745,4 +762,3 @@ if __name__ == '__main__':
     import wiringpi as wpi
 
     wpi.wiringPiSPISetup(0, 500000)
-

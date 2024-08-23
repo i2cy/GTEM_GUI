@@ -19,6 +19,8 @@ class PlotBuf:
         self.__last_fetch_ts = time.time()
         self.__ds_cnt = -1
         self.__freq = freq
+        self.__sample_rate = sample_rate
+        self.__time_offset = time.time()
 
     def __next__(self):
         if self.__index_out > self.buf_length:
@@ -44,6 +46,8 @@ class PlotBuf:
         self.__last_fetch_ts = time.time()
         self.__data.reset(buf_length)
         self.__time.reset(buf_length, sample_rate)
+        self.__time_offset = time.time()
+        self.__sample_rate = sample_rate
 
     def updateOne(self, data, timestamp=None):
         self.__data.updateOne(data)
@@ -54,15 +58,33 @@ class PlotBuf:
         self.__time.updateBatch(x)
 
     def getBuf(self, latest=25000):
-        dt = int((time.time() - self.__last_fetch_ts) * self.__freq) / self.__freq
         self.__last_fetch_ts = time.time()
-        return dt, (self.__time.asNumpy(latest),
-                    self.__data.asNumpy(latest))
+        time_scale = latest / self.__sample_rate
+        start_ts = self.__last_fetch_ts + self.__time_offset
+        end_ts = start_ts + time_scale
+
+        if start_ts < self.__time[0]:
+            self.__time_offset = self.__time[0] - self.__last_fetch_ts
+
+        elif end_ts > self.__time[-1] and self.__time[-1] > 0:
+            self.__time_offset = self.__time[-1] - time_scale - self.__last_fetch_ts
+
+        start_index = int(
+            (self.__last_fetch_ts + self.__time_offset - self.__time[0]) * self.__sample_rate
+        )
+
+        # print("t_min:", self.__time[0], "t_max:", self.__time[-1])
+        # print("start:", start_index, "end:", start_index + latest)
+
+        x = self.__time.asNumpy(start_index, start_index + latest)
+        y = self.__data.asNumpy(start_index, start_index + latest)
+
+        return x, y
 
 
 class TimeBuf(object):
 
-    def __init__(self, buf_length=2000, sample_rate=200):
+    def __init__(self, buf_length=200000 * 10, sample_rate=200):
 
         self.buf_length = buf_length
         self.sample_rate = sample_rate
@@ -98,12 +120,19 @@ class TimeBuf(object):
 
         return self
 
-    def asNumpy(self, latest=25000):
-        if self.__index_in > latest:
-            return self.__data[self.__index_in - latest:self.__index_in]
+    def asNumpy(self, start_index=0, end_index=0):
+        actual_start = self.__index_in + start_index
+        if actual_start >= self.buf_length:
+            actual_start -= self.buf_length
+        actual_end = self.__index_in + end_index
+        if actual_end > self.buf_length:
+            actual_end -= self.buf_length - 1
+
+        if actual_start >= actual_end:
+            return np.concatenate((self.__data[actual_start:],
+                                   self.__data[:actual_end])).copy()
         else:
-            return np.concatenate((self.__data[self.buf_length + self.__index_in - latest:],
-                                   self.__data[:self.__index_in]))
+            return self.__data[actual_start:actual_end].copy()
 
     def reset(self, buf_length=None, sample_rate=None):
         self.__index_in = 0
@@ -114,7 +143,7 @@ class TimeBuf(object):
 
         t0 = buf_length / sample_rate
 
-        self.__data = np.linspace(-t0, 0, self.buf_length, dtype=np.float64)
+        self.__data = np.zeros(self.buf_length, dtype=np.float32)
         self.__index_in = 0
         self.t0 = time.time()
 
@@ -148,7 +177,7 @@ class TimeBuf(object):
 
 class DataBuf(object):
 
-    def __init__(self, buf_length=2000):
+    def __init__(self, buf_length=200000 * 10):
         self.buf_length = buf_length
         self.__data = np.zeros(self.buf_length, dtype=np.float32)
         self.__filtered_data = np.zeros(self.buf_length, dtype=np.float32)
@@ -191,44 +220,20 @@ class DataBuf(object):
     def getFiltered(self):
         return self.__filtered_data
 
-    def asNumpy(self, latest=25000):
-        dat = np.frombuffer(self.__data, dtype=np.float32)
-        if self.__index_in > latest:
-            return dat[self.__index_in - latest:self.__index_in]
+    def asNumpy(self, start_index=0, end_index=0):
+        actual_start = self.__index_in + start_index
+        if actual_start >= self.buf_length:
+            actual_start -= self.buf_length
+        actual_end = self.__index_in + end_index
+        if actual_end > self.buf_length:
+            actual_end -= self.buf_length - 1
+        if actual_start >= actual_end:
+            return np.concatenate((self.__data[actual_start:],
+                                   self.__data[:actual_end])).copy()
         else:
-            return np.concatenate((dat[self.buf_length + self.__index_in - latest:],
-                                   dat[:self.__index_in]))
-
-    # def kill(self):
-    #     if self.__p.is_alive():
-    #         self.__control.value = False
-    #         self.__pipe_queue.put(0.0)
-    #         self.__p.join()
+            return self.__data[actual_start:actual_end].copy()
 
     def reset(self, buf_length=None):
-        # if self.__p.is_alive():
-        #     self.__control.value = False
-        #     self.__pipe_queue.put(0.0)
-        #     self.__p.join()
-        #
-        # while not self.__pipe_queue.empty():
-        #     try:
-        #         self.__pipe_queue.get_nowait()
-        #     except Exception:
-        #         continue
-        #
-        # if buf_length == self.buf_length:
-        #     for i in range(self.buf_length):
-        #         self.__data[i] = 0.0
-        #         self.__filtered_data[i] = 0.0
-        # else:
-        #     self.buf_length = buf_length
-        #     self.__data = Array("f", self.buf_length)
-        #     self.__filtered_data = Array("f", self.buf_length)
-        #
-        # self.__control.value = True
-        #
-        # self.__index_in.value = 0
         if buf_length is not None:
             self.buf_length = buf_length
 
@@ -237,8 +242,6 @@ class DataBuf(object):
 
         self.__index_in = 0
         self.__index_out = 0
-
-        # self.__p = Process(target=self.multiCoreProc)
 
     def updateOne(self, data):
         # self.__pipe_queue.put(data)

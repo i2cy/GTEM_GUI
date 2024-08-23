@@ -552,7 +552,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
         # start data updater
         self.data_updater.reset()
-        self.data_Ticker.start(2)
+        self.data_Ticker.start(1000)
 
     def actionStopRecording(self):
         self.rtGraph_Ticker.stop()
@@ -670,7 +670,10 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.label_filenameHeader_2.setText("\"{}\"".format(value))
 
     def doUpdateData(self):
+        if self.data_updater.isRunning():
+            return
         self.data_updater.start()
+        print("\nupdating data from queue to buffer", end="")
 
     def doUpdateBattery(self, value):
         self.label_batteryRemains_2.setText("{}%".format(value))
@@ -683,17 +686,19 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.buf_realTime_ch3.reset(MAX_BUFFER_TIME * sample_rate, sample_rate, freq=emit_rate)
 
         dt, data = self.buf_realTime_ch1.getBuf()
-        self.rtPlotWeight_ch1.setLimits(xMin=data[0][0], xMax=data[0][-1])
+        self.rtPlotWeight_ch1.setLimits(xMin=-1, xMax=0)
         self.rtPlot_ch1.setData(*data)
         self.rtPlotWeight_ch1.setRange(xRange=REAL_TIME_PLOT_XRANGES, padding=0)
         dt, data = self.buf_realTime_ch2.getBuf()
-        self.rtPlotWeight_ch2.setLimits(xMin=data[0][0], xMax=data[0][-1])
+        self.rtPlotWeight_ch2.setLimits(xMin=-1, xMax=0)
         self.rtPlot_ch2.setData(*data)
         self.rtPlotWeight_ch2.setRange(xRange=REAL_TIME_PLOT_XRANGES, padding=0)
         dt, data = self.buf_realTime_ch3.getBuf()
-        self.rtPlotWeight_ch3.setLimits(xMin=data[0][0], xMax=data[0][-1])
+        self.rtPlotWeight_ch3.setLimits(xMin=-1, xMax=0)
         self.rtPlot_ch3.setData(*data)
         self.rtPlotWeight_ch3.setRange(xRange=REAL_TIME_PLOT_XRANGES, padding=0)
+
+        print("realtime graph and buffer reset")
 
     def doUpdateRealTimeGraph(self):
         # blink LED
@@ -702,10 +707,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         if self.stackedWidget_topBar.currentIndex() != 0 or self.real_time_graph_updater.isRunning():
             return
 
-        if self.real_time_graph_updater.isFinished():
-            self.real_time_graph_updater.update_graph()
-
         self.real_time_graph_updater.start()
+
 
     def doUpdateSecFieldGraph(self):
         if self.stackedWidget_topBar.currentIndex() != 1 or self.sec_time_graph_updater.isRunning():
@@ -753,7 +756,7 @@ def test(ui):
 if __name__ == '__main__':
     global ti, cnt
     # set low IRQ priority
-    os.system(f"sudo chrt -f -p 1 {os.getpid()}")
+    # os.system(f"sudo chrt -f -p 1 {os.getpid()}")
 
     app = QApplication(sys.argv)
     ui = UIReceiver()
