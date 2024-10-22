@@ -5,6 +5,8 @@
 # Filename: globals
 # Created on: 2023/3/21
 
+from i2cylib.utils.logger import Logger
+
 REAL_TIME_PLOT_XRANGES = (-5, 0)
 REAL_TIME_PLOT_YRANGES = (-1.2 * 10 ** 7, 1.2 * 10 ** 7)
 REAL_TIME_PLOT_XTITLE = "time(s)"
@@ -27,3 +29,6 @@ SD_PATH = "/dev/mmcblk1p1"
 MOUNT_PATH = "/mnt"
 
 CLIP_TIME_SEC = 3600
+
+# global logger
+LOGGER = Logger("./gtem.log", level="DEBUG")

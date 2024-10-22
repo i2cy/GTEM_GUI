@@ -34,27 +34,27 @@ def main():
 
     print("{} frames found, {} valid second of data".format(frame_num, total_seconds))
 
-    # crop first 1000 frames
+    # crop first 5000 frames
     pre_frames_ch1 = []
     pre_frames_ch2 = []
     pre_frames_ch3 = []
 
     f.seek(0)
 
-    for i in range(1000):
+    for i in range(5000):
         pre_frames_ch1.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
         pre_frames_ch2.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
         pre_frames_ch3.append(int().from_bytes(f.read(4)[1:], "big", signed=True))
 
-    print(pre_frames_ch1[:50])
+    # print(pre_frames_ch1[:50])
 
-    x = np.linspace(0, 1000 / sample_rate, 1000)
+    x = np.linspace(0, 5000 / sample_rate, 5000)
     plt.plot(x, pre_frames_ch1, label="ch1", alpha=0.4)
 
     plt.plot(x, pre_frames_ch2, label="ch2", alpha=0.4)
 
     plt.plot(x, pre_frames_ch3, label="ch3", alpha=0.4)
-    plt.title("first 1000 frames of all 3 CH (SR: {}Hz)".format(sample_rate))
+    plt.title("first 5000 frames of all 3 CH (SR: {}Hz)".format(sample_rate))
     plt.xlabel("time(s)")
 
     plt.legend()
@@ -89,22 +89,16 @@ def main():
     print("fft complete, displaying plots")
 
     x = np.linspace(0, sample_rate // 2, sample_rate // 2)
-    plt.plot(x, fft_ch1_y)
-    plt.title("FFT result of CH1 (SR: {}Hz)".format(sample_rate))
+
+    plt.plot(x, fft_ch1_y, label="ch1", alpha=0.5)
+    plt.title("FFT result of all 3 CH (SR: {}Hz)".format(sample_rate))
     plt.xlabel("Freq (Hz)")
 
-    plt.show()
+    plt.plot(x, fft_ch2_y, label="ch2", alpha=0.5)
 
-    plt.plot(x, fft_ch2_y)
-    plt.title("FFT result of CH2 (SR: {}Hz)".format(sample_rate))
-    plt.xlabel("Freq (Hz)")
+    plt.plot(x, fft_ch3_y, label="ch3", alpha=0.5)
 
-    plt.show()
-
-    plt.plot(x, fft_ch3_y)
-    plt.title("FFT result of CH3 (SR: {}Hz)".format(sample_rate))
-    plt.xlabel("Freq (Hz)")
-
+    plt.legend()
     plt.show()
 
 

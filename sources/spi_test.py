@@ -16,10 +16,10 @@ LIVE = True
 
 if __name__ == '__main__':
     print("initializing FPGA controller")
-    ctl = FPGACtl("/dev/i2c-2", debug=True)
+    ctl = FPGACtl("/dev/i2c-2", debug=False)
 
     print("initializing FPGA communication interface")
-    com = FPGACom(to_file_only=True, ctl=ctl, debug=True, multiprocessing=False)
+    com = FPGACom(to_file_only=True, ctl=ctl, debug=False, multiprocessing=False)
 
     print("starting communication interface")
     com.start()
@@ -37,6 +37,10 @@ if __name__ == '__main__':
 
     print("setting amp rate: x1")
     ctl.set_amp_rate_of_channels("1", "1", "1")
+    band_ctl = BandWidthCtl("/dev/i2c-2", 0x20, 0x21, 0x23)
+    band_ctl.set_bandwidth("20K", "20K", "20K")
+    amp_ctl = AmpRateCtl("/dev/i2c-2", 0x74)
+    amp_ctl.set_amp_rate("1", "1", "1")
 
     print("current FPGA status: {}".format(ctl.read_status().model_dump_json(indent=2)))
     # input("(press ENTER to start recording)")

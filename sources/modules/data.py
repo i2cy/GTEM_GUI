@@ -9,18 +9,26 @@ import time
 import numpy as np
 from multiprocessing import Array, Process, Queue, Value, Pool
 import ctypes
+from i2cylib.utils.logger import Logger
 
 
 class PlotBuf:
 
-    def __init__(self, buf_length=25000 * 50, sample_rate=25000, freq=25):
-        self.__data = DataBuf(buf_length)
-        self.__time = TimeBuf(buf_length, sample_rate)
+    def __init__(self, buf_length=25000 * 50, sample_rate=25000, freq=25, logger: Logger = None):
+        if logger is None:
+            # create new logger if not set
+            logger = Logger()
+        self.__logger = logger
+
+        self.__data = DataBuf(buf_length, self.__logger)
+        self.__time = TimeBuf(buf_length, sample_rate, self.__logger)
         self.__last_fetch_ts = time.time()
         self.__ds_cnt = -1
         self.__freq = freq
         self.__sample_rate = sample_rate
         self.__time_offset = time.time()
+
+
 
     def __next__(self):
         if self.__index_out > self.buf_length:
@@ -84,7 +92,12 @@ class PlotBuf:
 
 class TimeBuf(object):
 
-    def __init__(self, buf_length=200000 * 10, sample_rate=200):
+    def __init__(self, buf_length=200000 * 10, sample_rate=200, logger: Logger = None):
+
+        if logger is None:
+            # create new logger if not set
+            logger = Logger()
+        self.__logger = logger
 
         self.buf_length = buf_length
         self.sample_rate = sample_rate
@@ -170,14 +183,20 @@ class TimeBuf(object):
             try:
                 self.__data[:self.__index_in] = timestamp[left:]
             except Exception as err:
-                print(
-                    f"time err: index_in: {self.__index_in}, total_data: {batch_length},"
+                self.__logger.ERROR(
+                    f"[timestamp buffer] time err: index_in: {self.__index_in}, total_data: {batch_length},"
                     f" data_left: {len(timestamp[left:])}, msg: {err}")
 
 
 class DataBuf(object):
 
-    def __init__(self, buf_length=200000 * 10):
+    def __init__(self, buf_length=200000 * 10, logger: Logger = None):
+
+        if logger is None:
+            # create new logger if not set
+            logger = Logger()
+        self.__logger = logger
+
         self.buf_length = buf_length
         self.__data = np.zeros(self.buf_length, dtype=np.float32)
         self.__filtered_data = np.zeros(self.buf_length, dtype=np.float32)
@@ -262,5 +281,5 @@ class DataBuf(object):
             try:
                 self.__data[:self.__index_in] = data[left:]
             except Exception as err:
-                print(
-                    f"data err: index_in: {self.__index_in}, total_data: {batch_length}, data_left: {len(data[left:])}, msg: {err}")
+                self.__logger.ERROR(
+                    f"[data buffer] data err: index_in: {self.__index_in}, total_data: {batch_length}, data_left: {len(data[left:])}, msg: {err}")

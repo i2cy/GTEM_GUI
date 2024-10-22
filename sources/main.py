@@ -202,9 +202,9 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
                                                 enable_legend=True)
 
         # channel data buffer (max size 2000)
-        self.buf_realTime_ch1 = PlotBuf()
-        self.buf_realTime_ch2 = PlotBuf()
-        self.buf_realTime_ch3 = PlotBuf()
+        self.buf_realTime_ch1 = PlotBuf(logger=LOGGER)
+        self.buf_realTime_ch2 = PlotBuf(logger=LOGGER)
+        self.buf_realTime_ch3 = PlotBuf(logger=LOGGER)
 
         dt, data = self.buf_realTime_ch1.getBuf()
         self.rtPlot_allch1_hist = self.rtPlotWeight_all_hist.plot(*data,
@@ -673,7 +673,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         if self.data_updater.isRunning():
             return
         self.data_updater.start()
-        print("\nupdating data from queue to buffer", end="")
+        LOGGER.DEBUG("[UIReceiver] running QThread:data_updater. updating data from queue to buffer")
 
     def doUpdateBattery(self, value):
         self.label_batteryRemains_2.setText("{}%".format(value))
@@ -698,7 +698,7 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
         self.rtPlot_ch3.setData(*data)
         self.rtPlotWeight_ch3.setRange(xRange=REAL_TIME_PLOT_XRANGES, padding=0)
 
-        print("realtime graph and buffer reset")
+        LOGGER.DEBUG("[UIReceiver] realtime graph and buffer reset")
 
     def doUpdateRealTimeGraph(self):
         # blink LED
@@ -729,7 +729,7 @@ def test(ui):
     gt = Gtem24File("../sample/GTEM_tests/dataTEM1/220102_100601.bin")
     live = True
 
-    print("batch size: {}".format(batch_size))
+    LOGGER.DEBUG("[TEST] batch size: {}".format(batch_size))
 
     def test(ti, cnt, ui):
         while live:
@@ -744,7 +744,7 @@ def test(ui):
 
             delay = dt - time.time() + t1_0
             if delay < 0:
-                print("warning: can not keep up, delayed behind for {:.3f}ms".format(-delay * 1000))
+                LOGGER.WARNING("[TEST] warning: can not keep up, delayed behind for {:.3f}ms".format(-delay * 1000))
             else:
                 time.sleep(delay)
 

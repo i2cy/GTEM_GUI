@@ -56,7 +56,7 @@ class Gtem24:
                             data_raw[x + peak_point - 1] -= deri / 2
 
                 peak_point += int(self.__k_T)
-                print(peak_point)
+                # print(peak_point)
 
         peak_point = self.peak_point
         flag = False
