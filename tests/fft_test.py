@@ -98,6 +98,8 @@ def main():
 
     plt.plot(x, fft_ch3_y, label="ch3", alpha=0.5)
 
+    plt.grid()
+
     plt.legend()
     plt.show()
 

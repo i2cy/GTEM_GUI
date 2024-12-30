@@ -196,6 +196,7 @@ class DataUpdaterThread(QThread):
 
         try:
             data = self.fifo_all.get(timeout=0.5)
+            print("[][][] data from queue got")
             if len(data):
                 self.ch1_dat = data[0]
                 self.ch2_dat = data[1]
@@ -226,6 +227,7 @@ class DataUpdaterThread(QThread):
             warnings.warn(e)
 
         # # print(f"fifo ch1 status: length = {self.fifo_ch1.qsize()}")
+        print("data loop time spending: {}".format(time.time() - ts))
 
 
 class MainGraphUpdaterThread(QThread):
@@ -241,6 +243,7 @@ class MainGraphUpdaterThread(QThread):
         self.last_render_range = (REAL_TIME_PLOT_XRANGES, REAL_TIME_PLOT_YRANGES)
 
     def update_graph(self):
+        ts = time.time()
         # self.parent.amp_ctl.set_LED(led2=True)
         tab_index = self.parent.tabWidget_channelGraph.currentIndex()
 
@@ -281,7 +284,14 @@ class MainGraphUpdaterThread(QThread):
         xmin = self.last_rander_data1[0][0]
         xmax = self.last_rander_data1[0][-1]
 
+        # sample_rate = int(self.parent.comboBox_sampleRate.currentText())
+        # view_range = len(self.last_rander_data1[1])
+        # xmin = 0
+        # xmax = view_range / sample_rate
+        # x = np.linspace(xmin, xmax, view_range)
+
         x_range = (xmin, xmax)
+
 
         self.last_render_limits = x_range
         self.last_render_range = (x_range, y_range)
@@ -327,6 +337,7 @@ class MainGraphUpdaterThread(QThread):
             print(f"range err, {self.last_render_range}")
 
         # self.parent.amp_ctl.set_LED(led2=False)
+        #print("updating main graph time spend: {}".format(time.time() - ts))
 
     def run(self):
         # self.parent.amp_ctl.set_LED(led4=True)
@@ -336,6 +347,7 @@ class MainGraphUpdaterThread(QThread):
 
         max_view_range = 4 / emit_rate
         view_range = int(max_view_range * sample_rate)
+        print(view_range)
 
         data = self.parent.buf_realTime_ch1.getBuf(view_range)
         self.last_rander_data1 = data

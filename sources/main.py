@@ -474,8 +474,8 @@ class UIReceiver(QMainWindow, Ui_MainWindow, QApplication):
 
     def actionStartRecording(self):
         self.doResetRealTimeGraph()
-        self.rtGraph_Ticker.start(100)
-        self.sfGraph_Ticker.start(500)
+        self.rtGraph_Ticker.start(50)
+        self.sfGraph_Ticker.start(1000)
         self.toolButton_startRecording.setText("正在采集")
         self.toolButton_settings.setEnabled(False)
         self.toolButton_mainMenu.setEnabled(False)

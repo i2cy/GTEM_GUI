@@ -66,26 +66,13 @@ class PlotBuf:
         self.__time.updateBatch(x)
 
     def getBuf(self, latest=25000):
+        dt = int((time.time() - self.__last_fetch_ts) * self.__freq) / self.__freq
         self.__last_fetch_ts = time.time()
-        time_scale = latest / self.__sample_rate
-        start_ts = self.__last_fetch_ts + self.__time_offset
-        end_ts = start_ts + time_scale
 
-        if start_ts < self.__time[0]:
-            self.__time_offset = self.__time[0] - self.__last_fetch_ts
+        x = self.__time.asNumpy(latest)
+        y = self.__data.asNumpy(latest)
 
-        elif end_ts > self.__time[-1] and self.__time[-1] > 0:
-            self.__time_offset = self.__time[-1] - time_scale - self.__last_fetch_ts
-
-        start_index = int(
-            (self.__last_fetch_ts + self.__time_offset - self.__time[0]) * self.__sample_rate
-        )
-
-        # print("t_min:", self.__time[0], "t_max:", self.__time[-1])
-        # print("start:", start_index, "end:", start_index + latest)
-
-        x = self.__time.asNumpy(start_index, start_index + latest)
-        y = self.__data.asNumpy(start_index, start_index + latest)
+        self.__last_fetch_ts = time.time()
 
         return x, y
 

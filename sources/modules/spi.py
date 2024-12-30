@@ -358,9 +358,9 @@ class FPGACom:
                 # put data in raw_data_queue for proc_data_process to use
                 try:
                     self.mp_raw_data_queue.put(data, block=False)
-                    print("\nput one batch of raw data in raw data queue, size now: {}".format(
-                        self.mp_raw_data_queue.qsize()
-                    ), end="")
+                    # print("\nput one batch of raw data in raw data queue, size now: {}".format(
+                    #     self.mp_raw_data_queue.qsize()
+                    # ), end="")
                 except Full:
                     warnings.warn("mp_raw_data_queue full, ts: {:.1f}".format(time.time()))
 
@@ -447,7 +447,7 @@ class FPGACom:
 
             # get one small batch of data from raw_data_queue
             try:
-                print("\ntrying to get one batch of data from mp_raw_data_queue", end="")
+                # print("\ntrying to get one batch of data from mp_raw_data_queue", end="")
                 frame = self.mp_raw_data_queue.get(timeout=0.5)
                 if not len(frame):
                     continue  # make sure the one small batch is not empty
@@ -557,7 +557,7 @@ class FPGACom:
                 time.sleep(0.02)
                 continue  # keeps IDLE
 
-            print("\nproc data process loop run:", running)
+            #print("\nproc data process loop run:", running)
             running += 1
 
             # close file_io to replace existed file_io object with a new one when signal of swapping file received
@@ -588,7 +588,7 @@ class FPGACom:
 
             # get one small batch of data from raw_data_queue
             try:
-                print("\ntrying to get one batch of data from mp_raw_data_queue", end="")
+                #print("\ntrying to get one batch of data from mp_raw_data_queue", end="")
                 frame = self.mp_raw_data_queue.get(timeout=0.5)
                 if not len(frame):
                     continue  # make sure the one small batch is not empty
@@ -624,7 +624,7 @@ class FPGACom:
                 file_cache += ch_addon[0] + ch1 + ch_addon[1] + ch2 + ch_addon[2] + ch3
 
             # write data
-            print("\nwrite data to file")
+            #print("\nwrite data to file")
             file_io.write(file_cache)
 
             # keep the remaining data for next round
@@ -638,9 +638,9 @@ class FPGACom:
                 else:
                     cnt = 0
                     # put data when 4 small batch is collected
-                    print("\ntrying to put one x4 batch to all_data_x4_queue, size now: {}".format(
-                        self.mp_all_data_queue_x4.qsize()
-                    ), end="")
+                    # print("\ntrying to put one x4 batch to all_data_x4_queue, size now: {}".format(
+                    #     self.mp_all_data_queue_x4.qsize()
+                    # ), end="")
                     if batch_is_a:
                         self.mp_all_data_queue_x4.put((ch1_batch_a, ch2_batch_a, ch3_batch_a))
                         batch_is_a = False

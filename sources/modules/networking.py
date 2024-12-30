@@ -6,7 +6,7 @@
 # Created on: 2024/9/4
 
 """
-this is an unsafe module which must only use in local network
+this is an unsafe module which must only use in local network (weak to MITM attacks) by I2cy
 
 communication process after TCP connection is established:
  1. server --(16B random key)-> client
@@ -28,6 +28,11 @@ import socket
 import random
 import threading
 import time
+from queue import Queue
+
+if __name__ == "__main__":
+    from .spi import FPGACtl,
+
 from hashlib import md5, sha256
 
 from i2cylib.utils.logger import Logger
@@ -181,16 +186,70 @@ class Server:
         while self.live:
             try:
                 conn, addr = self.srv.accept()
-                self.connections.append((conn, addr))
+                if self.__auth(conn):
+                    self.__logger.DEBUG(f"[Server] [con_accept] accept connection from {addr}")
+                    self.connections.append([conn, addr, []])
             except socket.error as err:
                 self.__logger.WARNING(f"[Server] [con_accept] socket error: {err}")
 
         self.__logger.DEBUG("[Server] [con_accept] thread stopped")
-
-
 
     def __thr_handler(self):
         """
         handling connections: receiving commands, sending data
         :return:
         """
+        self.__logger.DEBUG("[Server] [con_accept] thread started")
+
+        while self.live:
+
+            dead_connection_id = []
+
+            # iterate through every accepted connections
+            for cid, ele in enumerate(self.connections):
+                conn, addr, cmd_q = ele[:2]
+                conn: socket.socket
+                cmd_q: list
+                conn.setblocking(False)  # toggle non-blocking mode
+
+                for cmd in cmd_q:
+                    if cmd == 0
+
+
+                header = b""
+                # read from socket for upcoming command package (if there is)
+                try:
+                    header = conn.recv(5)
+                except socket.error as err:
+                    self.__logger.ERROR(
+                        f"[Server] [con_accept] [{addr[0]}:{addr[1]}] socket error while receiving "
+                        f"package header, closing connection: {err}")
+                    dead_connection_id.append(cid)  # mark connection dead
+                    continue
+
+                if header != b"":
+                    conn.setblocking(True)
+                    conn.settimeout(1)
+                    try:
+                        while len(header) < 5:
+                            header += conn.recv(5 - len(header))
+                    except socket.timeout as err:
+                        self.__logger.ERROR(f"[Server] [con_accept] [{addr[0]}:{addr[1]}] socket timeout while "
+                                              f"receiving package header, closing connection: {err}")
+                        dead_connection_id.append(cid)  # mark connection dead
+                        conn.setblocking(False)
+                        continue
+
+                    try:
+                        cmd_id, package_length = pak_header_decode(header)
+                        payload = b""
+                        while len(payload) < package_length:
+                            payload += conn.recv(package_length)
+                        cmd_q.append([package_length, cmd_id, b""])
+                    except Exception as err:
+                        self.__logger.WARNING(f"[Server] [con_accept] [{addr[0]}:{addr[1]}] broken package, {err}")
+                        conn.setblocking(False)
+                        continue
+                    conn.setblocking(False)
+
+        self.__logger.DEBUG("[Server] [con_accept] thread stopped")

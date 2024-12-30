@@ -519,6 +519,8 @@ class FPGACtl:
         """
         self.sample_rate_level = sample_rate_level
 
+
+
     def set_amp_rate_of_channels(self, ch1_amp: str, ch2_amp: str, ch3_amp: str):
         """
         set the amplification rate of each channel, transformed by transforming dict
